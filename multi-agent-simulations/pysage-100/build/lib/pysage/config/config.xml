@@ -1,0 +1,7 @@
+<?xml version="1.0" ?>
+<configuration>
+    <gui delay="5" pixels_per_meter="1000" />
+    <arena size="1,1" num_agents="100" max_steps="0">
+        <agent interaction_range="0.1" linear_speed="0.01" />
+    </arena>
+</configuration>

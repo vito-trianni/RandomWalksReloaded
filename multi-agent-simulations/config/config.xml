@@ -1,0 +1,7 @@
+<?xml version="1.0" ?>
+<configuration>
+    <gui pkg="randomwalk" delay="1" pixels_per_meter="600" />
+	<arena pkg="randomwalk" timestep_length="0.5" size="1,1"  max_steps="1000" num_agents="30"  num_runs="10" unbounded="1" num_targets="1" target_distance="0.5" >
+        	<agent pkg="randomwalk" linear_speed="0.01" CRW_exponent="0" average_motion_steps="0" std_motion_steps="5"  levy_exponent="1.6"   interaction_range="0.1"  bias_probability ="0.1" />
+   	</arena>
+</configuration>

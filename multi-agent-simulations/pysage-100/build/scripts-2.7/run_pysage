@@ -1,0 +1,7 @@
+#!/anaconda/bin/python
+
+from pysage import pysage
+import sys
+
+if __name__ == "__main__":
+    pysage.start(sys.argv[1:])

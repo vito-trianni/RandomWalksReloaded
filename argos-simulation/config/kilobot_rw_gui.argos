@@ -1,0 +1,76 @@
+<?xml version="1.0" ?>
+<argos-configuration>
+
+  <!-- ************************* -->
+  <!-- * General configuration * -->
+  <!-- ************************* -->
+  <framework>
+    <system threads="0" />
+    <experiment length="100000"
+                ticks_per_second="3"
+                /><!--random_seed="124" />-->
+  </framework>
+
+  <!-- *************** -->
+  <!-- * Controllers * -->
+  <!-- *************** -->
+  <controllers>
+    <kilobot_rw_controller id="rw" library="build/kilobots/libkilobot_rw">
+      <actuators>
+        <differential_steering implementation="default" />
+        <leds implementation="default" medium="leds" />
+        <kilobot_communication implementation="default" />
+      </actuators>
+      <sensors>
+        <kilobot_communication implementation="default" medium="kilocomm" show_rays="true" />
+      </sensors>
+      <params delta_ticks="10" num_moving_steps="50" num_speak_steps="10" num_options="0" />
+    </kilobot_rw_controller>
+  </controllers>
+  
+  <!-- ****************** -->
+  <!-- * Loop functions * -->
+  <!-- ****************** -->
+
+  <loop_functions library="build/kilobots/libkilobot_rw"
+      label="kilobot_rw_loop_functions"
+      arena_radius="0.475"
+      target_radius="0.1"
+      num_robots="10" >
+  </loop_functions>
+
+  <!-- *********************** -->
+  <!-- * Arena configuration * -->
+  <!-- *********************** -->
+  <arena size="2, 2, 1" center="0,0,0.5">
+    <floor id="floor" source="loop_functions" pixels_per_meter="200" />
+  </arena>
+
+  <!-- ******************* -->
+  <!-- * Physics engines * -->
+  <!-- ******************* -->
+  <physics_engines>
+    <dynamics2d id="dyn2d" iterations="5"/>
+  </physics_engines>
+
+  <!-- ********* -->
+  <!-- * Media * -->
+  <!-- ********* -->
+  <media>
+    <kilobot_communication id="kilocomm" />
+    <led id="leds" />
+  </media>
+
+  <!-- ****************** -->
+  <!-- * Visualization * -->
+  <!-- ****************** -->
+  <visualization>
+    <qt-opengl>
+      <camera>
+        <placement idx="0" position="0,0,1" look_at="0,0,0" lens_focal_length="20" />
+        <placement idx="1" position="0.25,0.25,0.25" look_at="0,0,0" lens_focal_length="20" />
+      </camera>
+    </qt-opengl>
+  </visualization>
+
+</argos-configuration>
