@@ -39,6 +39,12 @@ class CRWLEVYArena(pysage.Arena):
             sys.exit(2)
         self.num_targets = int(config_element.attrib["num_targets"])
 
+        nnruns=  config_element.attrib.get("num_runs")
+        if nnruns is not None:
+            self.num_runs=int(nnruns)
+        else:
+            self.num_runs=1
+
         # create the targets
         self.targets = []
         for i in range(0,self.num_targets):
@@ -73,6 +79,7 @@ class CRWLEVYArena(pysage.Arena):
     ##########################################################################
     def init_experiment( self ):
         pysage.Arena.init_experiment(self)
+        print "Hello!!"
 
         if self.unbounded:
             # unbounded arena has a central palce
@@ -111,8 +118,7 @@ class CRWLEVYArena(pysage.Arena):
     # run experiment until finished
     def run_experiment( self ):
         while not self.experiment_finished():
-            self.update()       
-        
+            self.update()
     ##########################################################################
     # updates the status of the simulation
     ##########################################################################
@@ -191,7 +197,9 @@ class CRWLEVYArena(pysage.Arena):
     ##########################################################################
     def compute_efficiency( self ):
         total_time = self.compute_total_time()
+        print total_time
         total_visits = self.compute_total_visits()
+        print total_visits
         try:
            efficiency = total_visits/total_time
         except ZeroDivisionError:
@@ -215,18 +223,18 @@ class CRWLEVYArena(pysage.Arena):
     ##########################################################################
     def experiment_finished( self ):
         total_visits = self.compute_total_visits()
-	conv_time = 0.0
+        conv_time = 0.0
         if ((self.max_steps > 0) and (self.max_steps <= self.num_steps)) or (total_visits == self.num_agents):
 	    min_first_time = self.compute_total_time()
             efficiency = self.compute_efficiency()
             average_total_time = self.compute_average_total_time()
-	    conv_time =  self.convergence_time - self.min_first_time
+            conv_time =  self.convergence_time - self.min_first_time
             #total_visits = self.compute_total_visits()
             percentage_tot_agents_with_info = (self.inventory_size*100)/self.num_agents
             print "run finished: ", self.has_converged, self.convergence_time, conv_time, efficiency, average_total_time, total_visits, percentage_tot_agents_with_info
             self.results.store(self.has_converged, self.convergence_time, conv_time, efficiency, average_total_time, total_visits, percentage_tot_agents_with_info)
             return True
-        return False 
+        return False
         
         
     ##########################################################################

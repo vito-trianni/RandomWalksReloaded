@@ -1,7 +1,0 @@
-<?xml version="1.0" ?>
-<configuration>
-    < gui pkg="CRWLEVY" delay="5" pixels_per_meter="600" >
-    <arena pkg="CRWLEVY" timestep_length="0.5" size="1,1" num_agents="50" max_steps="100000" num_runs="20" random_seed="12" results="results/test/result_bias0.00_levy2.00_crw0.00_pop0050_run0010.xml" unbounded="0" num_targets="1" target_distance="0.25" >
-        <agent pkg="CRWLEVY" linear_speed="0.01" CRW_exponent="0" average_motion_steps="0" std_motion_steps="5"  levy_exponent="2"   interaction_range="0.1"  bias_probability ="0" />
-    </arena>
-</configuration>
