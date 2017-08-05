@@ -52,7 +52,7 @@ class Results:
     #        self.num_informations /= (self.current_run+1)
           
             
-    def save_original( self, data_filename, run_filename ):
+    def save( self, data_filename, run_filename ):
         convergence_array = np.array(self.convergence)
         convergence_time_array = np.ma.array(self.convergence_time)#, mask=np.logical_not(convergence_array))
         conv_time_array = np.ma.array(self.conv_time)#, mask=np.logical_not(convergence_array))
