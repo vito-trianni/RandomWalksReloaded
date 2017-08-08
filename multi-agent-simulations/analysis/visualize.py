@@ -27,6 +27,12 @@ import copy
 def weib(x,alpha,gamma):
         return 1 - np.exp(-np.power(x/alpha,gamma))
 
+class Weib(st.rv_continuous):
+    def __init__(self,lower_bound=0):
+        st.rv_continuous.__init__(self,a=lower_bound)
+    def _cdf(self,x,alpha,gamma):
+        return 1 - np.exp(-np.power(x/alpha,gamma))
+
 def stats(p,truncated=True):
     convergence_array = np.array(p[:,0])
     convergence_time_array = np.ma.array(p[:,1], mask=np.logical_not(convergence_array))
@@ -66,6 +72,17 @@ def stats(p,truncated=True):
         F=1-np.asarray(RT_sync).reshape(-1,1)
         compute=np.concatenate((dataset[:-censored,1:3],F),1)
         m,gamma,c,alpha=st.exponweib.fit(compute[:,0],floc=0,f0=1)
+        my=Weib()
+        #print alpha,gamma,compute[:,0].shape
+        ys=my.cdf(compute[:,0],alpha,gamma)
+        #error= np.mean(np.power(ys-F,2))
+        #error2=np.mean(np.power(y2-F,2))
+        #print "ERROR", error-error2
+        
+        plt.plot(compute[:,0],ys,'r',linewidth=5)
+        plt.plot(compute[:,0],F,'b',linewidth=5)
+        #plt.show()
+        # Uncomment top line to view the fit
 
         Tsync=(sc.gamma(1+(1/gamma))*alpha)
         print ("Censored",Tsync)
@@ -88,16 +105,17 @@ class Variable_Dictionary:
         def get_copied(self):
                 return self.copied
 
-
 def plot_design(data,x,y,out,plttype,title,unbounded,rho=None,alpha=None,size=None):
 	## General preprocessing
 	data.index=map(str,np.arange(0,data.shape[0],1))
 	plttype=str(plttype)
 	title=str(title)
         if unbounded == 0:
+                graph_limit=3.5e3
                 title+=" for Bounded"
         else:
                 title+=" for Unbounded"
+                graph_limit=3.5e4
 
 	levy_alpha_range=map(str,np.linspace(1.1,2.0,10))
 	crw_rho_range=map(str,np.linspace(0,0.9,7))
@@ -106,7 +124,7 @@ def plot_design(data,x,y,out,plttype,title,unbounded,rho=None,alpha=None,size=No
 	levy_alpha=Variable_Dictionary("Levy-Exponent-Alpha",levy_alpha_range,alpha)
 	crw_rho=Variable_Dictionary("CRW-Exponent-Rho",crw_rho_range,rho)
 	pop_n=Variable_Dictionary("Population-Size",pop_n_range,size)
-        convergence_time=Variable_Dictionary("Convergence-Time",3.5e3,None)
+        convergence_time=Variable_Dictionary("Convergence-Time",graph_limit,None)
 
 	dict_variables=[levy_alpha,crw_rho,pop_n,convergence_time]
 	z=None
@@ -142,7 +160,7 @@ def plot_design(data,x,y,out,plttype,title,unbounded,rho=None,alpha=None,size=No
 		bin_y=np.asarray((np.asarray(data[y.name])-float(y.length[0]))/(float(y.length[-1])-float(y.length[-2])))
 		bin_x=np.asarray((np.asarray(data[x.name])-float(x.length[0]))/(float(x.length[-1])-float(x.length[-2])))
                 ## Uncomment this to verify your data
-		#data.to_csv('final_data.csv',header=False)
+		data.to_csv('final_data.csv',header=False)
 		bin_y=len(y.length)-bin_y-1		
 		dummy = np.zeros((len(y.length),len(x.length)))
 
@@ -169,10 +187,6 @@ def plot_design(data,x,y,out,plttype,title,unbounded,rho=None,alpha=None,size=No
         plt.title(title)
         plt.show()
 
-
-
-
-    
 def subtract(a, b,tail='.dat'):
     a="".join(a.rsplit(tail))
     return "".join(a.rsplit(b))  
@@ -180,19 +194,21 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("-t", "--truncated", help="1 or 0")
     ap.add_argument("-u", "--unbounded", help="0 or 1")
+    ap.add_argument("-p", "--path", help="enter path")
     args=vars(ap.parse_args())
-    if args.get("truncated",None) is None:
+    if args.get("truncated") is None:
         truncated=0
     else:
         truncated=int(args["truncated"])
     unbounded=int(args["unbounded"])
+    path=str(args["path"])
     log=[]
 
-    for filepath in glob.glob(os.getcwd()+'/results/*.dat'):
+    for filepath in glob.glob(os.getcwd()+'/'+path+'*.dat'):
     	name_labels=[]
         k=[]
         save=False
-        file_dict=subtract(filepath,os.getcwd()+'/results/result_').split('_')
+        file_dict=subtract(filepath,os.getcwd()+'/'+path+'result_').split('_')
         for i in range(len(file_dict)):
         	name_labels.append(str([''.join(g) for _, g in groupby(file_dict[i], str.isalpha)][0]))
         	k.append(float([''.join(g) for _, g in groupby(file_dict[i], str.isalpha)][1]))
@@ -206,7 +222,7 @@ def main():
         if save:
             b=np.genfromtxt(filepath)
             k+=stats(b)
-        log.append(k)
+            log.append(k)
     log=pd.DataFrame(log)
     log.columns=["Bias","Levy-Exponent-Alpha","CRW-Exponent-Rho","Population-Size"]+["Convergence_Count","Convergence-Time","Relative Convergence Time",
         "Efficiency","First Time of Passage","Total Visits","Percentage of Total Agents with Info"]
@@ -215,12 +231,8 @@ def main():
     plot_design(log,"CRW-Exponent-Rho","Levy-Exponent-Alpha","Total Visits","heatmap","PhiC ratio of Visited to Total Agents",unbounded)
     plot_design(log,"Population-Size","Convergence-Time","CRW-Exponent-Rho","lmplot","Convergence Times for Alpha=1.6",unbounded,alpha=1.6)
     plot_design(log,"Population-Size","Convergence-Time","Levy-Exponent-Alpha","lmplot","Convergence Times for Rho=0.6",unbounded,rho=0.6)
-    
-
     plot_design(log,"CRW-Exponent-Rho","Levy-Exponent-Alpha","Convergence-Time","heatmap","Total Convergence Time for Population 10",unbounded,size=10)
     plot_design(log,"CRW-Exponent-Rho","Levy-Exponent-Alpha","Convergence-Time","heatmap","Total Convergence Time for Population 100",unbounded,size=100)
 
-
-    	
 if __name__ == '__main__':
     main()
