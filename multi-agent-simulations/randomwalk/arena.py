@@ -193,13 +193,11 @@ class CRWLEVYArena(pysage.Arena):
         return total_visits
 
     ##########################################################################
-    # compute efficiency
+    # compute efficiency - Not using this anymore
     ##########################################################################
     def compute_efficiency( self ):
         total_time = self.compute_total_time()
-        print total_time
         total_visits = self.compute_total_visits()
-        print total_visits
         try:
            efficiency = total_visits/total_time
         except ZeroDivisionError:
@@ -219,6 +217,19 @@ class CRWLEVYArena(pysage.Arena):
         return average_total_time 
 
     ##########################################################################
+    # return list of first passage times
+    ##########################################################################
+    def first_passage_time_list(self):
+        first_times=[]
+        for a in self.agents:
+            try:
+                first_times.append(a.step_on_target_time[0:1][0])
+            except:
+                first_times.append(np.nan) #list that contains all first arrival time
+        return first_times
+	
+            
+    ##########################################################################
     # check if the experiment si finished
     ##########################################################################
     def experiment_finished( self ):
@@ -226,25 +237,19 @@ class CRWLEVYArena(pysage.Arena):
         conv_time = 0.0
         if ((self.max_steps > 0) and (self.max_steps <= self.num_steps)) or (total_visits == self.num_agents):
 	    min_first_time = self.compute_total_time()
-            efficiency = self.compute_efficiency()
-            average_total_time = self.compute_average_total_time()
+            first_passage_times = self.first_passage_time_list()
             conv_time =  self.convergence_time - self.min_first_time
-            #total_visits = self.compute_total_visits()
             percentage_tot_agents_with_info = (self.inventory_size*100)/self.num_agents
-            print "run finished: ", self.has_converged, self.convergence_time, conv_time, efficiency, average_total_time, total_visits, percentage_tot_agents_with_info
-            self.results.store(self.has_converged, self.convergence_time, conv_time, efficiency, average_total_time, total_visits, percentage_tot_agents_with_info)
+            total_visits_fraction=total_visits/float(self.num_agents)
+            print "run finished: ", self.has_converged, self.convergence_time, conv_time, total_visits_fraction, percentage_tot_agents_with_info, first_passage_times
+            self.results.store(self.has_converged, self.convergence_time, conv_time,total_visits_fraction, percentage_tot_agents_with_info,first_passage_times)
             return True
         return False
-        
         
     ##########################################################################
     # save results to file, if any
     ##########################################################################
     def save_results( self ):
         self.results.save(self.results_filename,None)
-
-
-
-   
             
 pysage.ArenaFactory.add_factory("randomwalk.arena", CRWLEVYArena.Factory())
