@@ -4,7 +4,9 @@ This is a script to automate visualising data in a batch.
 1. First files in the specified directory are parsed. Add your extension to the tail argument in subtract to feed correct data.
 2. Calculate statistics according to the need by specifiying whether truncated or not. Usage: -t 0 or -t 1
 3. Specify the logistics of the variables you wish to plot using the plot design module. Subsetting is done on the basis of feed. Currently only support heatmaps and lmplots.
-4. Use -u 0 or -1 for different datasets
+4. Use -u 0 or -1 for arena-specs 
+5. Use -l to specify prefix for time limit-specs
+6. Use -p for the path where .dat files are stored
 author: katanachan
 email: Aishwarya Unnikrishnan <shwarya.unnikrishnan@gmail.com>
 """
@@ -234,7 +236,7 @@ def main():
     unbounded=int(args["unbounded"])
     path=str(args["path"])
     if args.get("timelimit") is None:
-        prefix='result_'
+        prefix='result'
     else:
         prefix=str(args["timelimit"])
     log=[]
