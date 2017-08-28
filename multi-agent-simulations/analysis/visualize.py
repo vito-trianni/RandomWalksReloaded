@@ -23,6 +23,7 @@ from itertools import groupby
 import scipy.stats as st
 import scipy.special as sc
 import copy
+from scipy.optimize import curve_fit
 
 def weib(x,alpha,gamma):
         return 1 - np.exp(-np.power(x/alpha,gamma))
@@ -30,8 +31,9 @@ def weib(x,alpha,gamma):
 class Weib(st.rv_continuous):
     def __init__(self,lower_bound=0):
         st.rv_continuous.__init__(self,a=lower_bound)
-    def _cdf(self,x,alpha,gamma):
+    def cdf(self,x,alpha,gamma):
         return 1 - np.exp(-np.power(x/alpha,gamma))
+
 def expanded_stats(data):
     time_list=[]
     for i in range(data.shape[0]):
@@ -46,14 +48,12 @@ def expanded_stats(data):
             time_list.append(sc.gamma(1+(1/gamma))*alpha)
             
     return np.asarray(time_list).reshape(1,-1)[0]    
-        
-    
-        
+
 def stats(p,truncated=True):
     convergence_array = np.array(p[:,0])
     convergence_time_array = np.ma.array(p[:,1], mask=np.logical_not(convergence_array))
     censored_conv=np.sum(np.logical_not(convergence_array))
-    print ("Censored Vallues",censored_conv)
+    print ("No. of cases of no convergence",censored_conv)
     conv_time_array = np.ma.array(p[:,2], mask=np.logical_not(convergence_array))
     visits_ratio_array = np.ma.array(p[:,3], mask=np.logical_not(convergence_array))
     percentage_tot_agents_with_info_array = np.ma.array(p[:,4], mask=np.logical_not(convergence_array))    
@@ -86,30 +86,39 @@ def stats(p,truncated=True):
                 RT_sync.append(RT_sync[-1]*((n_est[i]-1)/n_est[i]))
         F=1-np.asarray(RT_sync).reshape(-1,1)
         if censored_conv !=0:
-            compute=np.concatenate((data[:-censored_conv,1:3],F),1)
+            compute=np.concatenate((data[:-censored_conv,1:3],F),1)        
         try:
-            m,gamma,c,alpha=st.exponweib.fit(compute[:,0],floc=0,f0=1)
+            _,gamma,_,alpha=st.exponweib.fit(compute[:,0],floc=0,f0=1)
+            
             my=Weib()
-            #print alpha,gamma,compute[:,0].shape
             ys=my.cdf(compute[:,0],alpha,gamma)
+            popt,pcov= curve_fit(my.cdf,xdata=compute[:,0].compressed(),ydata=np.squeeze(F),bounds=(0,[100000,10]),method='trf')
+            y2=my.cdf(compute[:,0],popt[0],popt[1])
             #error= np.mean(np.power(ys-F,2))
             #error2=np.mean(np.power(y2-F,2))
             #print "ERROR", error-error2
-        
+            #print "computed,", F
+            print alpha,gamma
+            print popt[0],popt[1]       
             plt.plot(compute[:,0],ys,'r',linewidth=5)
+            plt.plot(compute[:,0],y2,'y',linewidth=5)
             plt.plot(compute[:,0],F,'b',linewidth=5)
-            #plt.show()
+            plt.show()
             # Uncomment top line to view the fit
 
             Tsync=(sc.gamma(1+(1/gamma))*alpha)
+            Tsync2=sc.gamma(1+(1./popt[1]))*popt[0]
             print ("Censored",Tsync)
+            print ("Censored with New Fit",Tsync2)
             convergence_time_array.mask=np.logical_not(convergence_array)
             print ("Uncensored", np.mean(convergence_time_array.compressed()))
             _,gamma,_,alpha=st.exponweib.fit(compute[:,1],floc=0,f0=1)
-            Tsynt=sc.gamma(1+(1/gamma))*alpha
+            popt,pcov= curve_fit(my.cdf,xdata=compute[:,1].compressed(),ydata=np.squeeze(F),bounds=(0,[100000,10]),method='trf')
+            Tsynt=sc.gamma(1+(1./gamma))*alpha
+            Tsynt2=sc.gamma(1+(1./popt[1]))*popt[0]
         except:
-            Tsync=np.nan
-            Tsynt=np.nan
+            Tsync2=np.nan
+            Tsynt2=np.nan
 
         ## First passage time Statistic
         try:
@@ -122,7 +131,7 @@ def stats(p,truncated=True):
         except:
             Tpass=np.nan
             
-        head = [np.mean(convergence_array.astype(int)), Tsync, Tsynt, np.mean(p[:,3]), np.mean(p[:,4]),Tpass]
+        head = [np.mean(convergence_array.astype(int)), Tsync2, Tsynt2, np.mean(p[:,3]), np.mean(p[:,4]),Tpass]
     return head
 
 class Variable_Dictionary:
