@@ -1,9 +1,9 @@
 #!/usr/bin/env python
 """
 This is a script to automate visualising data in a batch.
-1. First files in the specified directory are parsed. Add your extension to the tail argument in subtract to feed correct data.
-2. Calculate statistics according to the need by specifiying whether truncated or not. Usage: -t 0 or -t 1
-3. Specify the logistics of the variables you wish to plot using the plot design module. Subsetting is done on the basis of feed. Currently only support heatmaps and lmplots.
+1. First, files in the specified directory are parsed. Add your extension to the tail argument (in subtract) to feed correct data.
+2. Calculate statistics by specifiying whether truncated or not. Usage: -t 0 or -t 1
+3. Specify the logistics of the variables you wish to plot, using the plot design module. Subsetting is done on the basis of feed. Currently only supports heatmaps and lmplots.
 4. Use -u 0 or -1 for arena-specs 
 5. Use -l to specify prefix for time limit-specs
 6. Use -p for the path where .dat files are stored
@@ -44,12 +44,21 @@ def expanded_stats(data):
             dataset=data[i,:]
             dataset=dataset[np.argsort(dataset)]
             dataset=dataset[:-censored]
-            _,gamma,_,alpha=st.exponweib.fit(dataset,floc=0,f0=1)
-            time_list.append(sc.gamma(1+(1/gamma))*alpha)
+            n_est=np.asarray(range(0,dataset.size))[::-1] + float(censored)
+            RT_sync=[]
+            for i in range(n_est.size):
+                if len(RT_sync)==0:
+                    RT_sync.append((n_est[i]-1)/n_est[i])
+                else:
+                    RT_sync.append(RT_sync[-1]*((n_est[i]-1)/n_est[i]))
+            F=1-np.asarray(RT_sync).reshape(-1,1)
+            my=Weib()
+            popt,pcov= curve_fit(my.cdf,xdata=dataset,ydata=np.squeeze(F),bounds=(0,[1000000,10]),method='trf')                
+            time_list.append(sc.gamma(1+(1./popt[1]))*popt[0])
             
     return np.asarray(time_list).reshape(1,-1)[0]    
 
-def stats(p,truncated=True):
+def stats(p,truncated=1):
     convergence_array = np.array(p[:,0])
     convergence_time_array = np.ma.array(p[:,1], mask=np.logical_not(convergence_array))
     censored_conv=np.sum(np.logical_not(convergence_array))
@@ -59,13 +68,14 @@ def stats(p,truncated=True):
     percentage_tot_agents_with_info_array = np.ma.array(p[:,4], mask=np.logical_not(convergence_array))    
     first_passage_time_array=np.ma.array(expanded_stats(p[:,5:]),mask=np.logical_not(convergence_array))
     
-    if truncated==True:
+    if truncated==1:
         convergence_time_array.mask=np.ma.nomask
         conv_time_array.mask=np.ma.nomask
         visits_ratio_array.mask=np.ma.nomask
         percentage_tot_agents_with_info_array.mask=np.ma.nomask
         first_passage_time_array.mask=np.ma.nomask
     censored_pass=np.sum(np.isnan(first_passage_time_array))
+    print "No of cases of no passage",censored_pass
     dataset = np.column_stack((convergence_array,
                                convergence_time_array,
                                conv_time_array,
@@ -73,8 +83,8 @@ def stats(p,truncated=True):
                                percentage_tot_agents_with_info_array,
                                first_passage_time_array))
         
-    if (censored_conv==0 and censored_pass == 0) or truncated==False:
-        head = [np.mean(convergence_array.astype(int)), np.mean(convergence_time_array.compressed()), np.mean(conv_time_array.compressed()) , np.mean(p[:,3]), np.mean(p[:,4]),np.mean(p[:,5])]
+    if (censored_conv==0 and censored_pass == 0) or truncated==0:
+        head = [np.mean(convergence_array.astype(int)), np.mean(convergence_time_array.compressed()), np.mean(conv_time_array.compressed()) , np.mean(p[:,3]), np.mean(p[:,4]),np.mean(first_passage_time_array)]
     else:
         data=dataset[np.argsort(dataset[:,1])]
         n_est=np.asarray(range(0,conv_time_array.compressed().size-censored_conv))[::-1] + float(censored_conv)
@@ -86,52 +96,68 @@ def stats(p,truncated=True):
                 RT_sync.append(RT_sync[-1]*((n_est[i]-1)/n_est[i]))
         F=1-np.asarray(RT_sync).reshape(-1,1)
         if censored_conv !=0:
-            compute=np.concatenate((data[:-censored_conv,1:3],F),1)        
-        try:
-            _,gamma,_,alpha=st.exponweib.fit(compute[:,0],floc=0,f0=1)
-            
-            my=Weib()
-            ys=my.cdf(compute[:,0],alpha,gamma)
-            popt,pcov= curve_fit(my.cdf,xdata=compute[:,0].compressed(),ydata=np.squeeze(F),bounds=(0,[100000,10]),method='trf')
-            y2=my.cdf(compute[:,0],popt[0],popt[1])
-            #error= np.mean(np.power(ys-F,2))
-            #error2=np.mean(np.power(y2-F,2))
-            #print "ERROR", error-error2
-            #print "computed,", F
-            print alpha,gamma
-            print popt[0],popt[1]       
-            plt.plot(compute[:,0],ys,'r',linewidth=5)
-            plt.plot(compute[:,0],y2,'y',linewidth=5)
-            plt.plot(compute[:,0],F,'b',linewidth=5)
-            plt.show()
-            # Uncomment top line to view the fit
+            compute=np.concatenate((data[:-censored_conv,1:3],F),1)
+            try:
+                _,gamma,_,alpha=st.exponweib.fit(compute[:,0],floc=0,f0=1)
+                my=Weib()
+                ys=my.cdf(compute[:,0],alpha,gamma)
+                popt,pcov= curve_fit(my.cdf,xdata=compute[:,0].compressed(),ydata=np.squeeze(F),bounds=(0,[1000000,10]),method='trf')
+                y2=my.cdf(compute[:,0],popt[0],popt[1])
+                #error= np.mean(np.power(ys-F,2))
+                #error2=np.mean(np.power(y2-F,2))
+                #print "ERROR", error-error2
+                #print "computed,", F
+                #print alpha,gamma
+                #print popt[0],popt[1]       
+                #plt.plot(compute[:,0],ys,'r',linewidth=5)
+                #plt.plot(compute[:,0],y2,'y',linewidth=5)
+                #plt.plot(compute[:,0],F,'b',linewidth=5)
+                #plt.show()
+                # Uncomment top line to view the fit
 
-            Tsync=(sc.gamma(1+(1/gamma))*alpha)
-            Tsync2=sc.gamma(1+(1./popt[1]))*popt[0]
-            print ("Censored",Tsync)
-            print ("Censored with New Fit",Tsync2)
-            convergence_time_array.mask=np.logical_not(convergence_array)
-            print ("Uncensored", np.mean(convergence_time_array.compressed()))
-            _,gamma,_,alpha=st.exponweib.fit(compute[:,1],floc=0,f0=1)
-            popt,pcov= curve_fit(my.cdf,xdata=compute[:,1].compressed(),ydata=np.squeeze(F),bounds=(0,[100000,10]),method='trf')
-            Tsynt=sc.gamma(1+(1./gamma))*alpha
-            Tsynt2=sc.gamma(1+(1./popt[1]))*popt[0]
-        except:
-            Tsync2=np.nan
-            Tsynt2=np.nan
+                Tsync=(sc.gamma(1+(1/gamma))*alpha)
+                Tsync2=sc.gamma(1+(1./popt[1]))*popt[0]
+                #print ("Censored",Tsync)
+                #print ("Censored with New Fit",Tsync2)
+                convergence_time_array.mask=np.logical_not(convergence_array)
+                #print ("Uncensored", np.mean(convergence_time_array.compressed()))
+                _,gamma,_,alpha=st.exponweib.fit(compute[:,1],floc=0,f0=1)
+                popt,pcov= curve_fit(my.cdf,xdata=compute[:,1].compressed(),ydata=np.squeeze(F),bounds=(0,[100000,10]),method='trf')
+                Tsynt=sc.gamma(1+(1./gamma))*alpha
+                Tsynt2=sc.gamma(1+(1./popt[1]))*popt[0]
+            except:
+                Tsync2=np.nan
+                Tsynt2=np.nan
 
+        else:
+            Tsync2=np.mean(convergence_time_array.compressed())
+            Tsynt2=np.mean(conv_time_array.compressed())
+
+        data=dataset[np.argsort(dataset[:,-1])]
+        data=data[:,-1]    
         ## First passage time Statistic
-        try:
-            data=dataset[np.argsort(dataset[:,-1])]
-            data=data[:,-1]
-            if censored_pass!=0:
+        if censored_pass!=0:
+            try:
                 data=data[:-censored_pass]
-            _,gamma,_,alpha=st.exponweib.fit(data,floc=0,f0=1)
-            Tpass=sc.gamma(1+(1/gamma))*alpha
-        except:
-            Tpass=np.nan
+                n_est=np.asarray(range(0,data.size))[::-1] + float(censored_pass)
+                RT_sync=[]
+                my=Weib()
+                for i in range(n_est.size):
+                    if len(RT_sync)==0:
+                        RT_sync.append((n_est[i]-1)/n_est[i])
+                    else:
+                        RT_sync.append(RT_sync[-1]*((n_est[i]-1)/n_est[i]))
+                F=1-np.asarray(RT_sync).reshape(-1,1)
+                popt,pcov= curve_fit(my.cdf,xdata=data,ydata=np.squeeze(F),bounds=(0,[1000000,10]),method='trf')
+                #print "Alpha,Gamma for Fitted Curve",popt[0],popt[1]
+                Tpass2=sc.gamma(1+(1./popt[1]))*popt[0]
+                
+            except:
+                Tpass2=np.nan
+        else:
+            Tpass2=np.mean(data)
             
-        head = [np.mean(convergence_array.astype(int)), Tsync2, Tsynt2, np.mean(p[:,3]), np.mean(p[:,4]),Tpass]
+        head = [np.mean(convergence_array.astype(int)), Tsync2, Tsynt2, np.mean(p[:,3]), np.mean(p[:,4]),Tpass2]
     return head
 
 class Variable_Dictionary:
@@ -152,11 +178,11 @@ def plot_design(data,x,y,out,plttype,title,unbounded,rho=None,alpha=None,size=No
 	plttype=str(plttype)
 	title=str(title)
         if unbounded == 0:
-                graph_limit=3.5e4
+                graph_limit=3.5e5
                 title+=" for Bounded"
         else:
                 title+=" for Unbounded"
-                graph_limit=3.5e4
+                graph_limit=3.5e5
 
 	levy_alpha_range=map(str,np.linspace(1.1,2.0,10))
 	crw_rho_range=map(str,np.linspace(0,0.9,7))
@@ -221,7 +247,9 @@ def plot_design(data,x,y,out,plttype,title,unbounded,rho=None,alpha=None,size=No
                 dummy.index=y.length[::-1]
                 sns.heatmap(dummy,annot=True)
         elif plttype=="lmplot":
-    	        sns.lmplot(x=x.name,y=y.name,data=data,hue=out,x_jitter=0.05,legend_out=False,fit_reg=True,scatter=True,order=2,markers="x")
+                scatter_kwargs={"s":100}
+    	        sns.lmplot(x=x.name,y=y.name,data=data,hue=out,legend_out=False,fit_reg=False,scatter=True,markers="o",scatter_kws=scatter_kwargs)
+
                 plt.ylim(0,y.length)
         plt.xlabel(x.name)
         plt.ylabel(y.name)
@@ -265,15 +293,14 @@ def main():
         	    save = True
             elif unbounded == 0 and len(k)==4:
                 save = True
-            print k
             if save:
                 b=np.genfromtxt(filepath)
                 k+=stats(b)
+                print k
                 log.append(k)
     log=pd.DataFrame(log)
     log.columns=["Bias","Levy-Exponent-Alpha","CRW-Exponent-Rho","Population-Size"]+["Convergence_Count","Convergence-Time","Relative Convergence Time",
-                                                                                     "Ratio of Total Visits","Percentage of Total Agents with Info","First Time of Passage"]
-
+                                                                                     "Ratio of Total Visits","Percentage of Total Agents with Info","First Time of Passage"]                                                                             
     plot_design(log,"CRW-Exponent-Rho","Levy-Exponent-Alpha","First Time of Passage","heatmap","Average First Passage Time for all Populations",unbounded)
     plot_design(log,"CRW-Exponent-Rho","Levy-Exponent-Alpha","Ratio of Total Visits","heatmap","PhiC ratio of Visited to Total Agents",unbounded)
     plot_design(log,"Population-Size","Convergence-Time","CRW-Exponent-Rho","lmplot","Convergence Times for Alpha=1.6",unbounded,alpha=1.6)
