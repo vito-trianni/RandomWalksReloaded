@@ -24,7 +24,10 @@ import scipy.stats as st
 import scipy.special as sc
 import copy
 from scipy.optimize import curve_fit
+import matplotlib.backends.backend_pdf
 
+hola=[]
+pdf = matplotlib.backends.backend_pdf.PdfPages("output.pdf")
 def weib(x,alpha,gamma):
         return 1 - np.exp(-np.power(x/alpha,gamma))
 
@@ -59,10 +62,11 @@ def expanded_stats(data):
     return np.asarray(time_list).reshape(1,-1)[0]    
 
 def stats(p,truncated=1):
+    global hola
     convergence_array = np.array(p[:,0])
     convergence_time_array = np.ma.array(p[:,1], mask=np.logical_not(convergence_array))
     censored_conv=np.sum(np.logical_not(convergence_array))
-    print ("No. of cases of no convergence",censored_conv)
+    print "No. of cases of no convergence",censored_conv
     conv_time_array = np.ma.array(p[:,2], mask=np.logical_not(convergence_array))
     visits_ratio_array = np.ma.array(p[:,3], mask=np.logical_not(convergence_array))
     percentage_tot_agents_with_info_array = np.ma.array(p[:,4], mask=np.logical_not(convergence_array))    
@@ -97,10 +101,10 @@ def stats(p,truncated=1):
         F=1-np.asarray(RT_sync).reshape(-1,1)
         if censored_conv !=0:
             compute=np.concatenate((data[:-censored_conv,1:3],F),1)
+                
             try:
-                _,gamma,_,alpha=st.exponweib.fit(compute[:,0],floc=0,f0=1)
+                #_,gamma,_,alpha=st.exponweib.fit(compute[:,0],floc=0,f0=1)
                 my=Weib()
-                ys=my.cdf(compute[:,0],alpha,gamma)
                 popt,pcov= curve_fit(my.cdf,xdata=compute[:,0].compressed(),ydata=np.squeeze(F),bounds=(0,[1000000,10]),method='trf')
                 y2=my.cdf(compute[:,0],popt[0],popt[1])
                 #error= np.mean(np.power(ys-F,2))
@@ -108,22 +112,26 @@ def stats(p,truncated=1):
                 #print "ERROR", error-error2
                 #print "computed,", F
                 #print alpha,gamma
-                #print popt[0],popt[1]       
-                #plt.plot(compute[:,0],ys,'r',linewidth=5)
-                #plt.plot(compute[:,0],y2,'y',linewidth=5)
-                #plt.plot(compute[:,0],F,'b',linewidth=5)
+                print popt[0],popt[1]
+                #fig=plt.figure()       
+                #plt.plot(compute[:,0],ys,'r',linewidth=5,label="exponwebib fit")
+                #plt.plot(compute[:,0],y2,'y',linewidth=5,label="curve fit")
+                #plt.plot(compute[:,0],F,'b',linewidth=5,label="K-M stats")
+                #plt.legend()
+                #pdf.savefig( fig )
+
                 #plt.show()
                 # Uncomment top line to view the fit
 
-                Tsync=(sc.gamma(1+(1/gamma))*alpha)
+                #Tsync=(sc.gamma(1+(1/gamma))*alpha)
                 Tsync2=sc.gamma(1+(1./popt[1]))*popt[0]
                 #print ("Censored",Tsync)
-                #print ("Censored with New Fit",Tsync2)
+                print ("Censored with New Fit",Tsync2)
                 convergence_time_array.mask=np.logical_not(convergence_array)
-                #print ("Uncensored", np.mean(convergence_time_array.compressed()))
-                _,gamma,_,alpha=st.exponweib.fit(compute[:,1],floc=0,f0=1)
+                print ("Uncensored", np.mean(convergence_time_array.compressed()))
+                #_,gamma,_,alpha=st.exponweib.fit(compute[:,1],floc=0,f0=1)
                 popt,pcov= curve_fit(my.cdf,xdata=compute[:,1].compressed(),ydata=np.squeeze(F),bounds=(0,[100000,10]),method='trf')
-                Tsynt=sc.gamma(1+(1./gamma))*alpha
+                #Tsynt=sc.gamma(1+(1./gamma))*alpha
                 Tsynt2=sc.gamma(1+(1./popt[1]))*popt[0]
             except:
                 Tsync2=np.nan
@@ -178,11 +186,11 @@ def plot_design(data,x,y,out,plttype,title,unbounded,rho=None,alpha=None,size=No
 	plttype=str(plttype)
 	title=str(title)
         if unbounded == 0:
-                graph_limit=3.5e5
-                title+=" for Bounded"
+            graph_limit=3.5e5
+            title+=" for Bounded"
         else:
-                title+=" for Unbounded"
-                graph_limit=3.5e5
+            title+=" for Unbounded"
+            graph_limit=3.5e5
 
 	levy_alpha_range=map(str,np.linspace(1.1,2.0,10))
 	crw_rho_range=map(str,np.linspace(0,0.9,7))
@@ -193,7 +201,7 @@ def plot_design(data,x,y,out,plttype,title,unbounded,rho=None,alpha=None,size=No
 	pop_n=Variable_Dictionary("Population-Size",pop_n_range,size)
         convergence_time=Variable_Dictionary("Convergence-Time",graph_limit,None)
 
-	dict_variables=[levy_alpha,crw_rho,pop_n,convergence_time]
+        dict_variables=[levy_alpha,crw_rho,pop_n,convergence_time]
 	z=None
 	dict_inputs=[x,y]
 	## Additionally add z?
@@ -209,18 +217,19 @@ def plot_design(data,x,y,out,plttype,title,unbounded,rho=None,alpha=None,size=No
 			z=copy.deepcopy(dict_variables[i])
 			dict_inputs.append(z)                
         if np.all(np.logical_not(map(Variable_Dictionary.get_fixed,dict_variables))):
-                unused_to_average= np.where(np.logical_not(map(Variable_Dictionary.get_copied,dict_variables[0:3])))[0][0]
-                ## Changed this line to choose between out and unused variables
-                z=copy.deepcopy(dict_variables[unused_to_average])
-                z.average=len(list(set(np.unique(data[z.name])).intersection(map(int,map(float,z.length)))))
+            unused_to_average= np.where(np.logical_not(map(Variable_Dictionary.get_copied,dict_variables[0:3])))[0][0]
+            ## Changed this line to choose between out and unused variables
+            z=copy.deepcopy(dict_variables[unused_to_average])
+            z.average=len(list(set(np.unique(data[z.name])).intersection(map(int,map(float,z.length)))))
         else:
-                for i in range(len(dict_inputs)):
-                        if dict_inputs[i].fixed != None:
-                                data=data[data[dict_inputs[i].name]==dict_inputs[i].fixed]
+            for i in range(len(dict_inputs)):
+                    if dict_inputs[i].fixed != None:
+                        data=data[data[dict_inputs[i].name]==dict_inputs[i].fixed]
 
 	## Subset
         x=copy.deepcopy(dict_inputs[0])
         y=copy.deepcopy(dict_inputs[1])
+        
 
 	if plttype=="heatmap":
                 ## Make bins
@@ -240,26 +249,34 @@ def plot_design(data,x,y,out,plttype,title,unbounded,rho=None,alpha=None,size=No
 			dummy[int(bin_y[k]),int(bin_x[k]+1)]+=data[out][k]
                 ## A const value check:
                 if z.average!=0:
-                        dummy/=z.average
+                    dummy/=z.average
                 ## Label heat map
                 dummy=pd.DataFrame(dummy)
                 dummy.columns=x.length
                 dummy.index=y.length[::-1]
+                fig=plt.figure()
                 sns.heatmap(dummy,annot=True)
         elif plttype=="lmplot":
                 scatter_kwargs={"s":100}
-    	        sns.lmplot(x=x.name,y=y.name,data=data,hue=out,legend_out=False,fit_reg=False,scatter=True,markers="o",scatter_kws=scatter_kwargs)
+                data=data[~data.isnull()]
+                
+                fig=sns.lmplot(x=x.name,y=y.name,data=data,hue=out,legend_out=False,fit_reg=False,scatter=True,markers="o",size=7,aspect=1.3,scatter_kws=scatter_kwargs)
+                #plt.ylim(0,y.length)
 
-                plt.ylim(0,y.length)
-        plt.xlabel(x.name)
-        plt.ylabel(y.name)
-        plt.title(title)
+        sns.plt.xlabel(x.name)
+        sns.plt.ylabel(y.name)
+        sns.plt.suptitle(title)
+        if plttype=="heatmap":
+             pdf.savefig( fig )
+        elif plttype=="lmplot":
+             pdf.savefig( fig.fig )
         plt.show()
 
 def subtract(a, b,tail='.dat'):
     a="".join(a.rsplit(tail))
     return "".join(a.rsplit(b))  
 def main():
+    global hola
     ap = argparse.ArgumentParser()
     ap.add_argument("-t", "--truncated", help="1 or 0")
     ap.add_argument("-u", "--unbounded", help="0 or 1")
@@ -296,7 +313,6 @@ def main():
             if save:
                 b=np.genfromtxt(filepath)
                 k+=stats(b)
-                print k
                 log.append(k)
     log=pd.DataFrame(log)
     log.columns=["Bias","Levy-Exponent-Alpha","CRW-Exponent-Rho","Population-Size"]+["Convergence_Count","Convergence-Time","Relative Convergence Time",
@@ -307,6 +323,8 @@ def main():
     plot_design(log,"Population-Size","Convergence-Time","Levy-Exponent-Alpha","lmplot","Convergence Times for Rho=0.6",unbounded,rho=0.6)
     plot_design(log,"CRW-Exponent-Rho","Levy-Exponent-Alpha","Convergence-Time","heatmap","Total Convergence Time for Population 10",unbounded,size=10)
     plot_design(log,"CRW-Exponent-Rho","Levy-Exponent-Alpha","Convergence-Time","heatmap","Total Convergence Time for Population 100",unbounded,size=100)
+    pdf.close()
+
 
 if __name__ == '__main__':
     main()
