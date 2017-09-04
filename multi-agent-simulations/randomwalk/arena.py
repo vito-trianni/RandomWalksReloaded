@@ -39,6 +39,12 @@ class CRWLEVYArena(pysage.Arena):
             sys.exit(2)
         self.num_targets = int(config_element.attrib["num_targets"])
 
+        nnruns=  config_element.attrib.get("num_runs")
+        if nnruns is not None:
+            self.num_runs=int(nnruns)
+        else:
+            self.num_runs=1
+
         # create the targets
         self.targets = []
         for i in range(0,self.num_targets):
@@ -73,6 +79,7 @@ class CRWLEVYArena(pysage.Arena):
     ##########################################################################
     def init_experiment( self ):
         pysage.Arena.init_experiment(self)
+        print "Hello!!"
 
         if self.unbounded:
             # unbounded arena has a central palce
@@ -111,8 +118,7 @@ class CRWLEVYArena(pysage.Arena):
     # run experiment until finished
     def run_experiment( self ):
         while not self.experiment_finished():
-            self.update()       
-        
+            self.update()
     ##########################################################################
     # updates the status of the simulation
     ##########################################################################
@@ -187,7 +193,7 @@ class CRWLEVYArena(pysage.Arena):
         return total_visits
 
     ##########################################################################
-    # compute efficiency
+    # compute efficiency - Not using this anymore
     ##########################################################################
     def compute_efficiency( self ):
         total_time = self.compute_total_time()
@@ -211,32 +217,39 @@ class CRWLEVYArena(pysage.Arena):
         return average_total_time 
 
     ##########################################################################
+    # return list of first passage times
+    ##########################################################################
+    def first_passage_time_list(self):
+        first_times=[]
+        for a in self.agents:
+            try:
+                first_times.append(a.step_on_target_time[0:1][0])
+            except:
+                first_times.append(np.nan) #list that contains all first arrival time
+        return first_times
+	
+            
+    ##########################################################################
     # check if the experiment si finished
     ##########################################################################
     def experiment_finished( self ):
         total_visits = self.compute_total_visits()
-	conv_time = 0.0
+        conv_time = 0.0
         if ((self.max_steps > 0) and (self.max_steps <= self.num_steps)) or (total_visits == self.num_agents):
 	    min_first_time = self.compute_total_time()
-            efficiency = self.compute_efficiency()
-            average_total_time = self.compute_average_total_time()
-	    conv_time =  self.convergence_time - self.min_first_time
-            #total_visits = self.compute_total_visits()
+            first_passage_times = self.first_passage_time_list()
+            conv_time =  self.convergence_time - self.min_first_time
             percentage_tot_agents_with_info = (self.inventory_size*100)/self.num_agents
-            print "run finished: ", self.has_converged, self.convergence_time, conv_time, efficiency, average_total_time, total_visits, percentage_tot_agents_with_info
-            self.results.store(self.has_converged, self.convergence_time, conv_time, efficiency, average_total_time, total_visits, percentage_tot_agents_with_info)
+            total_visits_fraction=total_visits/float(self.num_agents)
+            print "run finished: ", self.has_converged, self.convergence_time, conv_time, total_visits_fraction, percentage_tot_agents_with_info, first_passage_times
+            self.results.store(self.has_converged, self.convergence_time, conv_time,total_visits_fraction, percentage_tot_agents_with_info,first_passage_times)
             return True
-        return False 
-        
+        return False
         
     ##########################################################################
     # save results to file, if any
     ##########################################################################
     def save_results( self ):
         self.results.save(self.results_filename,None)
-
-
-
-   
             
 pysage.ArenaFactory.add_factory("randomwalk.arena", CRWLEVYArena.Factory())

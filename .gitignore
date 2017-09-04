@@ -1,0 +1,10 @@
+*.png
+multi-agent-simulations/results/
+*.txt
+*.csv
+*.py~
+*.xml~
+*.pyc
+*.pdf
+*.swp
+New/
