@@ -56,12 +56,12 @@ def expanded_stats(data):
                     RT_sync.append(RT_sync[-1]*((n_est[i]-1)/n_est[i]))
             F=1-np.asarray(RT_sync).reshape(-1,1)
             my=Weib()
-            popt,pcov= curve_fit(my.cdf,xdata=dataset,ydata=np.squeeze(F),bounds=(0,[1000000,10]),method='trf')                
+            popt,_= curve_fit(my.cdf,xdata=dataset,ydata=np.squeeze(F),bounds=(0,[1000000,10]),method='trf')                
             time_list.append(sc.gamma(1+(1./popt[1]))*popt[0])
             
     return np.asarray(time_list).reshape(1,-1)[0]    
 
-def stats(p,truncated=1):
+def stats(p,label,truncated=1):
     global hola
     convergence_array = np.array(p[:,0])
     convergence_time_array = np.ma.array(p[:,1], mask=np.logical_not(convergence_array))
@@ -90,6 +90,7 @@ def stats(p,truncated=1):
     if (censored_conv==0 and censored_pass == 0) or truncated==0:
         head = [np.mean(convergence_array.astype(int)), np.mean(convergence_time_array.compressed()), np.mean(conv_time_array.compressed()) , np.mean(p[:,3]), np.mean(p[:,4]),np.mean(first_passage_time_array)]
     else:
+        my=Weib()
         data=dataset[np.argsort(dataset[:,1])]
         n_est=np.asarray(range(0,conv_time_array.compressed().size-censored_conv))[::-1] + float(censored_conv)
         RT_sync=[]
@@ -103,35 +104,32 @@ def stats(p,truncated=1):
             compute=np.concatenate((data[:-censored_conv,1:3],F),1)
                 
             try:
-                #_,gamma,_,alpha=st.exponweib.fit(compute[:,0],floc=0,f0=1)
-                my=Weib()
-                popt,pcov= curve_fit(my.cdf,xdata=compute[:,0].compressed(),ydata=np.squeeze(F),bounds=(0,[1000000,10]),method='trf')
+                
+                popt,_= curve_fit(my.cdf,xdata=compute[:,0].compressed(),ydata=np.squeeze(F),bounds=(0,[1000000,10]),method='trf')
                 y2=my.cdf(compute[:,0],popt[0],popt[1])
-                #error= np.mean(np.power(ys-F,2))
-                #error2=np.mean(np.power(y2-F,2))
-                #print "ERROR", error-error2
-                #print "computed,", F
-                #print alpha,gamma
                 print popt[0],popt[1]
-                #fig=plt.figure()       
-                #plt.plot(compute[:,0],ys,'r',linewidth=5,label="exponwebib fit")
-                #plt.plot(compute[:,0],y2,'y',linewidth=5,label="curve fit")
-                #plt.plot(compute[:,0],F,'b',linewidth=5,label="K-M stats")
-                #plt.legend()
-                #pdf.savefig( fig )
+                Tsync2=sc.gamma(1+(1./popt[1]))*popt[0]
+                
+                fig=plt.figure()       
+                #plt.plot(compute[:,0],ys,'r',linewidth=5,label="exponwebib fit")                
+                plt.plot(compute[:,0],y2,'y',linewidth=5,label="curve fit")
+                plt.plot(compute[:,0],F,'b',linewidth=5,label="K-M stats")
+                plt.legend()
+                plt.ylim(0,1)
+                label="Alpha "+str(label[1])+" Rho "+str(label[2])+" Population "+str(int(label[3]))+" Time of Convergence"
+                plt.title(label)
+                plt.xlabel("Number of time steps")
+                plt.ylabel("Synchronisation probability")
+                pdf.savefig( fig )
 
                 #plt.show()
                 # Uncomment top line to view the fit
 
-                #Tsync=(sc.gamma(1+(1/gamma))*alpha)
-                Tsync2=sc.gamma(1+(1./popt[1]))*popt[0]
                 #print ("Censored",Tsync)
-                print ("Censored with New Fit",Tsync2)
+                print "Censored",Tsync2
                 convergence_time_array.mask=np.logical_not(convergence_array)
-                print ("Uncensored", np.mean(convergence_time_array.compressed()))
-                #_,gamma,_,alpha=st.exponweib.fit(compute[:,1],floc=0,f0=1)
-                popt,pcov= curve_fit(my.cdf,xdata=compute[:,1].compressed(),ydata=np.squeeze(F),bounds=(0,[100000,10]),method='trf')
-                #Tsynt=sc.gamma(1+(1./gamma))*alpha
+                print "Uncensored", np.mean(convergence_time_array.compressed())
+                popt,_= curve_fit(my.cdf,xdata=compute[:,1].compressed(),ydata=np.squeeze(F),bounds=(0,[100000,10]),method='trf')
                 Tsynt2=sc.gamma(1+(1./popt[1]))*popt[0]
             except:
                 Tsync2=np.nan
@@ -156,10 +154,20 @@ def stats(p,truncated=1):
                     else:
                         RT_sync.append(RT_sync[-1]*((n_est[i]-1)/n_est[i]))
                 F=1-np.asarray(RT_sync).reshape(-1,1)
-                popt,pcov= curve_fit(my.cdf,xdata=data,ydata=np.squeeze(F),bounds=(0,[1000000,10]),method='trf')
-                #print "Alpha,Gamma for Fitted Curve",popt[0],popt[1]
+                popt,_= curve_fit(my.cdf,xdata=data,ydata=np.squeeze(F),bounds=(0,[1000000,10]),method='trf')
                 Tpass2=sc.gamma(1+(1./popt[1]))*popt[0]
-                
+                fig=plt.figure()
+                y2=my.cdf(data,popt[0],popt[1])
+                plt.plot(data,y2,'r',linewidth=5,label="curve fit")
+                plt.plot(data,F,'g',linewidth=5,label="K-M stats")
+                plt.legend()
+                plt.ylim(0,1)
+                label="Alpha "+str(label[1])+" Rho "+str(label[2])+" Population "+str(int(label[3]))+" Time of First Passage"
+                plt.title(label)
+                plt.xlabel("Number of time steps")
+                plt.ylabel("Synchronisation probability")
+                pdf.savefig( fig )
+
             except:
                 Tpass2=np.nan
         else:
@@ -205,6 +213,7 @@ def plot_design(data,x,y,out,plttype,title,unbounded,rho=None,alpha=None,size=No
 	z=None
 	dict_inputs=[x,y]
 	## Additionally add z?
+        data.to_csv('final_data.csv',header=False)
 
 	for i in range(len(dict_inputs)):
 		dict_input=dict_inputs[i].split('-')[0]
@@ -236,7 +245,6 @@ def plot_design(data,x,y,out,plttype,title,unbounded,rho=None,alpha=None,size=No
 		bin_y=np.asarray((np.asarray(data[y.name])-float(y.length[0]))/(float(y.length[-1])-float(y.length[-2])))
 		bin_x=np.asarray((np.asarray(data[x.name])-float(x.length[0]))/(float(x.length[-1])-float(x.length[-2])))
                 ## Uncomment this to verify your data
-		#data.to_csv('final_data.csv',header=False)
 		bin_y=len(y.length)-bin_y-1		
 		dummy = np.zeros((len(y.length),len(x.length)))
 
@@ -270,7 +278,7 @@ def plot_design(data,x,y,out,plttype,title,unbounded,rho=None,alpha=None,size=No
              pdf.savefig( fig )
         elif plttype=="lmplot":
              pdf.savefig( fig.fig )
-        plt.show()
+        #plt.show()
 
 def subtract(a, b,tail='.dat'):
     a="".join(a.rsplit(tail))
@@ -312,7 +320,7 @@ def main():
                 save = True
             if save:
                 b=np.genfromtxt(filepath)
-                k+=stats(b)
+                k+=stats(b,k)
                 log.append(k)
     log=pd.DataFrame(log)
     log.columns=["Bias","Levy-Exponent-Alpha","CRW-Exponent-Rho","Population-Size"]+["Convergence_Count","Convergence-Time","Relative Convergence Time",
