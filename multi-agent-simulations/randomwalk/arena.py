@@ -52,9 +52,12 @@ class CRWLEVYArena(pysage.Arena):
 
         # control flag : value of flag
         self.central_place = None
-        sunbounded = config_element.attrib.get("unbounded")
-        if sunbounded is not None:
-            self.unbounded = int(sunbounded)
+        s_arena_type = config_element.attrib.get("arena_type")
+        if s_arena_type == "bounded" or s_arena_type == "periodic" or s_arena_type == "unbounded":
+            self.arena_type = s_arena_type
+        else:
+            print "Arena type", s_arena_type, "not recognised, using default value 'bounded'"
+            self.arena_type = "bounded"
     
         #  size_radius
         ssize_radius = config_element.attrib.get("size_radius");
@@ -81,26 +84,26 @@ class CRWLEVYArena(pysage.Arena):
     def init_experiment( self ):
         pysage.Arena.init_experiment(self)
 
-        if self.unbounded:
+        if self.arena_type == "unbounded":
             # unbounded arena has a central palce
-            self.central_place = Target(pysage.Vec2d(0,0), self.target_size, self)
+            self.central_place = Target(self.dimensions/2.0, self.target_size, self)
             # agents initialised in the center
             for agent in self.agents:
-                agent.position = pysage.Vec2d(0,0)
+                agent.position = self.dimensions/2.0
             # targets initialised in circular sector 
             for target in self.targets:    ##### Different initalisation if bounded or unbounded
                 # target_position_radius = random.uniform(self.dimensions_radius.x,self.dimensions_radius.y);
                 target_position_angle  = random.uniform(-math.pi,math.pi);
-                target.position = pysage.Vec2d(self.target_distance*math.cos(target_position_angle),self.target_distance*math.sin(target_position_angle))
+                target.position = self.dimensions/2.0 + pysage.Vec2d(self.target_distance*math.cos(target_position_angle),self.target_distance*math.sin(target_position_angle))
         else:     
-            # targets initialised anywhere in the bounded arena
-            for target in self.targets:    ##### Different initalisation if bounded or unbounded
-                target.position = pysage.Vec2d(random.uniform(-self.dimensions.x/2+self.target_size,self.dimensions.x/2-self.target_size),random.uniform(-self.dimensions.y/2+self.target_size,self.dimensions.y/2-self.target_size))
-             # agents initialised anywhere in the bounded arena
+            # targets initialised anywhere in the bounded or periodic arena
+            for target in self.targets:    ##### Different initalisation if bounded/periodic or unbounded
+                target.position = pysage.Vec2d(random.uniform(self.target_size,self.dimensions.x-self.target_size),random.uniform(self.target_size,self.dimensions.y-self.target_size))
+             # agents initialised anywhere in the bounded/periodic arena
             for agent in self.agents:
                  on_target = True
                  while on_target:  
-                       agent.position = pysage.Vec2d(random.uniform(-self.dimensions.x/2,self.dimensions.x/2),random.uniform(-self.dimensions.y/2,self.dimensions.y/2))
+                       agent.position = pysage.Vec2d(random.uniform(0,self.dimensions.x),random.uniform(0,self.dimensions.y))
                        on_target= False
                        for t in self.targets:   
                            if (t.position - agent.position).get_length() < t.size:                       
@@ -132,20 +135,21 @@ class CRWLEVYArena(pysage.Arena):
         for a in self.agents:
             a.update()
             a.update_inventory()
-            if self.unbounded == 0:
-                ##### Implement the periodic boundary conditions
-                ## a.position = ((a.position+self.dimensions/2) % self.dimensions)-self.dimensions/2
+            if self.arena_type == "bounded":
                 ##### Implement boundaries at the arena border
-                if a.position.x < -self.dimensions.x/2:
-                    a.position.x = -self.dimensions.x/2
-                elif a.position.x > self.dimensions.x/2:
-                    a.position.x = self.dimensions.x/2 
-
-                if a.position.y < -self.dimensions.y/2:
-                    a.position.y = -self.dimensions.y/2
-                elif a.position.y > self.dimensions.y/2:
-                    a.position.y = self.dimensions.y/2
-  
+                if a.position.x < 0:
+                    a.position.x = 0
+                elif a.position.x > self.dimensions.x:
+                    a.position.x = self.dimensions.x 
+    
+                if a.position.y < 0:
+                    a.position.y = 0
+                elif a.position.y > self.dimensions.y:
+                    a.position.y = self.dimensions.y
+            elif self.arena_type == "periodic":
+                ##### Implement the periodic boundary conditions
+                a.position = a.position % self.dimensions
+            
             self.inventory_size += a.inventory_size()
 
         # broadcast a target 

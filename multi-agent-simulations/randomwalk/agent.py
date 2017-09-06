@@ -86,7 +86,7 @@ class CRWLEVYAgent(pysage.Agent):
         self.first_time_step_on_target = []
 
 	#counter time enter on the central place
-	self.step_on_central_place_time = []
+	## self.step_on_central_place_time = []
 
         # flag: true when over target
         self.on_target = False
@@ -133,7 +133,7 @@ class CRWLEVYAgent(pysage.Agent):
         del self.received_targets[:]
         del self.visited_target_id[:]
         del self.step_on_target_time[:]
-        del self.step_on_central_place_time[:]
+        # del self.step_on_central_place_time[:]
 
         self.on_target = False
 	self.on_central_place = False
@@ -157,17 +157,18 @@ class CRWLEVYAgent(pysage.Agent):
                         self.step_on_target_time.append(self.arena.num_steps)
             else:
                 self.on_target = False
-	if self.arena.unbounded :
-		if(self.arena.central_place.position - self.position).get_length() < self.arena.central_place.size:
-		 	if not self.on_central_place:
-                   		 self.on_central_place = True
-		    		 self.count_motion_steps = 0	
-                    		 if len(self.step_on_central_place_time) > 0 : 
-                        		self.step_on_central_place_time.append(self.arena.num_steps - self.step_on_central_place_time[-1])
-                    		 else:
-                        		self.step_on_central_place_time.append(self.arena.num_steps)                   
-        	else:
-                	self.on_central_place = False
+
+        ## if self.arena.unbounded :
+        ##     if(self.arena.central_place.position - self.position).get_length() < self.arena.central_place.size:
+        ##         if not self.on_central_place:
+        ##             self.on_central_place = True
+        ##             self.count_motion_steps = 0	
+        ##             if len(self.step_on_central_place_time) > 0 : 
+        ##                 self.step_on_central_place_time.append(self.arena.num_steps - self.step_on_central_place_time[-1])
+        ##             else:
+        ##                 self.step_on_central_place_time.append(self.arena.num_steps)                   
+        ## 	else:
+        ##         self.on_central_place = False
 
         # agent basic movement: go straight
         self.apply_velocity = pysage.Vec2d(CRWLEVYAgent.linear_speed,0)
@@ -181,14 +182,13 @@ class CRWLEVYAgent(pysage.Agent):
             #self.count_motion_steps = math.fabs(stabrnd.stabrnd(CRWLEVYAgent.levy_exponent, 0, CRWLEVYAgent.std_motion_steps, CRWLEVYAgent.average_motion_steps, 1, 1))
             # turning angle
             crw_angle = 0
-	    if self.arena.unbounded and (scipy.random.random(1) <= CRWLEVYAgent.bias_probability ) :
+            if self.arena.arena_type == "unbounded" and (scipy.random.random(1) <= CRWLEVYAgent.bias_probability ) :
                 crw_angle=(self.arena.central_place.position - self.position).get_angle() - self.velocity.get_angle()	
             elif CRWLEVYAgent.CRW_exponent == 0:
                 crw_angle = random.uniform(0,(2*math.pi))
             else:
                 crw_angle = wrapcauchy.rvs(CRWLEVYAgent.CRW_exponent)
 
-            
             self.apply_velocity.rotate(crw_angle)		 
 
             
