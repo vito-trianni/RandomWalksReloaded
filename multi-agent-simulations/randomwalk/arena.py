@@ -63,9 +63,10 @@ class CRWLEVYArena(pysage.Arena):
 
 
         # control parameter: target_distance
+        self.target_distance = 1.0
         starget_distance = config_element.attrib.get("target_distance")
         if starget_distance is not None:
-            CRWLEVYAgent.target_distance = float(starget_distance)
+            self.target_distance = float(starget_distance)
         
         # variable in wich is stored the min among first passage time
 	self.min_first_time = 0.0
@@ -79,7 +80,6 @@ class CRWLEVYArena(pysage.Arena):
     ##########################################################################
     def init_experiment( self ):
         pysage.Arena.init_experiment(self)
-        print "Hello!!"
 
         if self.unbounded:
             # unbounded arena has a central palce
@@ -91,11 +91,11 @@ class CRWLEVYArena(pysage.Arena):
             for target in self.targets:    ##### Different initalisation if bounded or unbounded
                 # target_position_radius = random.uniform(self.dimensions_radius.x,self.dimensions_radius.y);
                 target_position_angle  = random.uniform(-math.pi,math.pi);
-                target.position = pysage.Vec2d(CRWLEVYAgent.target_distance*math.cos(target_position_angle),CRWLEVYAgent.target_distance*math.sin(target_position_angle))
+                target.position = pysage.Vec2d(self.target_distance*math.cos(target_position_angle),self.target_distance*math.sin(target_position_angle))
         else:     
             # targets initialised anywhere in the bounded arena
             for target in self.targets:    ##### Different initalisation if bounded or unbounded
-                target.position = pysage.Vec2d(random.uniform(-self.dimensions.x/2+CRWLEVYAgent.target_distance,self.dimensions.x/2-CRWLEVYAgent.target_distance),random.uniform(-self.dimensions.y/2+CRWLEVYAgent.target_distance,self.dimensions.y/2-CRWLEVYAgent.target_distance))
+                target.position = pysage.Vec2d(random.uniform(-self.dimensions.x/2+self.target_size,self.dimensions.x/2-self.target_size),random.uniform(-self.dimensions.y/2+self.target_size,self.dimensions.y/2-self.target_size))
              # agents initialised anywhere in the bounded arena
             for agent in self.agents:
                  on_target = True
@@ -133,13 +133,16 @@ class CRWLEVYArena(pysage.Arena):
             a.update()
             a.update_inventory()
             if self.unbounded == 0:
-                if a.position.x < -0.5:
-                    a.position.x = -0.5
+                ##### Implement the periodic boundary conditions
+                ## a.position = ((a.position+self.dimensions/2) % self.dimensions)-self.dimensions/2
+                ##### Implement boundaries at the arena border
+                if a.position.x < -self.dimensions.x/2:
+                    a.position.x = -self.dimensions.x/2
                 elif a.position.x > self.dimensions.x/2:
                     a.position.x = self.dimensions.x/2 
 
-                if a.position.y < -0.5:
-                    a.position.y = -0.5
+                if a.position.y < -self.dimensions.y/2:
+                    a.position.y = -self.dimensions.y/2
                 elif a.position.y > self.dimensions.y/2:
                     a.position.y = self.dimensions.y/2
   

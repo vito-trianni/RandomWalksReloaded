@@ -238,7 +238,7 @@ class CRWLEVYAgent(pysage.Agent):
     def set_selected_flag( self, status ):
         self.selected = status
         if self.selected:
-            print "agent",  self.id, "inventory:", self.inventory
+            print "agent",  self.id, "inventory:", self.inventory, self.position
 
     ##########################################################################
     # return the inventory size

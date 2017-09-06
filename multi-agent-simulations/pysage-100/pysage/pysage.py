@@ -999,10 +999,15 @@ class Arena:
             a.update()
             a.position = a.position % self.dimensions # Implement the periodic boundary conditions
             #### CODE FOR A BOUNDED ARENA
-            # if a.position.x < 0: a.position.x = 0
-            # elif a.position.x > self.dimensions.x: a.position.x = self.dimensions.x 
-            # if a.position.y < 0: a.position.y = 0
-            # elif a.position.y > self.dimensions.y: a.position.x = self.dimensions.x 
+            ## if a.position.x < -self.dimensions.x/2:
+            ##     a.position.x = -self.dimensions.x/2
+            ## elif a.position.x > self.dimensions.x/2:
+            ##     a.position.x = self.dimensions.x/2 
+
+            ## if a.position.y < -self.dimensions.y/2:
+            ##     a.position.y = -self.dimensions.y/2
+            ## elif a.position.y > self.dimensions.y/2:
+            ##     a.position.y = self.dimensions.y/2
 
         self.num_steps += 1
 
@@ -1180,10 +1185,13 @@ class PysageGUI(object):
         print "Canvas size", self.pixels_per_meter*self.arena.dimensions
         self.w = tk.Canvas(self.master, width=int(self.pixels_per_meter*self.arena.dimensions.x), height=int(self.pixels_per_meter*self.arena.dimensions.y), background="#EEE")
         self.w.pack()
+
+        self.arena_halfx = self.arena.dimensions.x/2.0
+        self.arena_halfy = self.arena.dimensions.y/2.0
         
         for a in self.arena.agents:
-            xpos = int(a.position.x*self.pixels_per_meter)
-            ypos = int(a.position.y*self.pixels_per_meter)
+            xpos = int((a.position.x+self.arena_halfx)*self.pixels_per_meter)
+            ypos = int((a.position.y+self.arena_halfy)*self.pixels_per_meter)
             agent_halfsize = int(Agent.size*self.pixels_per_meter/2)
             agent_tag = "agent_%d" % a.id
             self.agents_id[a.id] = self.w.create_oval((xpos-agent_halfsize,ypos-agent_halfsize,xpos+agent_halfsize,ypos+agent_halfsize), fill="blue", tags=(agent_tag))
@@ -1195,8 +1203,8 @@ class PysageGUI(object):
     def draw_arena(self, init=False):
         self.w.bind("<Button-1>", self.unselect_agent)
         for a in self.arena.agents:
-            xpos = int(a.position.x*self.pixels_per_meter)
-            ypos = int(a.position.y*self.pixels_per_meter)
+            xpos = int((a.position.x+self.arena_halfx)*self.pixels_per_meter)
+            ypos = int((a.position.y+self.arena_halfy)*self.pixels_per_meter)
             agent_halfsize = int(Agent.size*self.pixels_per_meter/2)
             self.w.coords(self.agents_id[a.id], (xpos-agent_halfsize,ypos-agent_halfsize,xpos+agent_halfsize,ypos+agent_halfsize))
         
