@@ -239,7 +239,7 @@ class CRWLEVYArena(pysage.Arena):
         total_visits = self.compute_total_visits()
         conv_time = 0.0
         if ((self.max_steps > 0) and (self.max_steps <= self.num_steps)) or (total_visits == self.num_agents):
-	    min_first_time = self.compute_total_time()
+            min_first_time = self.compute_total_time()
             first_passage_times = self.first_passage_time_list()
             conv_time =  self.convergence_time - self.min_first_time
             percentage_tot_agents_with_info = (self.inventory_size*100)/self.num_agents
