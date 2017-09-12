@@ -37,12 +37,14 @@ class Weib(st.rv_continuous):
     def cdf(self,x,alpha,gamma):
         return 1 - np.exp(-np.power(x/alpha,gamma))
 
-def expanded_stats(data):
+def expanded_stats(data,label):
     time_list=[]
     for i in range(data.shape[0]):
         censored=np.sum(np.isnan(data[i,:]))
         if censored==data.shape[1]:
             time_list.append(np.nan)
+        elif censored==0:
+            time_list.append(np.mean(data[i,:]))
         else:
             dataset=data[i,:]
             dataset=dataset[np.argsort(dataset)]
@@ -56,7 +58,19 @@ def expanded_stats(data):
                     RT_sync.append(RT_sync[-1]*((n_est[i]-1)/n_est[i]))
             F=1-np.asarray(RT_sync).reshape(-1,1)
             my=Weib()
-            popt,_= curve_fit(my.cdf,xdata=dataset,ydata=np.squeeze(F),bounds=(0,[1000000,10]),method='trf')                
+            popt,_= curve_fit(my.cdf,xdata=dataset,ydata=np.squeeze(F),bounds=(0,[1000000,10]),method='trf')
+            fig=plt.figure()
+            y2=my.cdf(dataset,popt[0],popt[1])
+            plt.plot(dataset,y2,'y',linewidth=5,label="curve fit")
+            plt.plot(dataset,F,'b',linewidth=5,label="K-M stats")
+            plt.legend()
+            plt.ylim(0,1)
+            label2="Alpha "+str(label[1])+" Rho "+str(label[2])+" Population "+str(int(label[3]))+" Time of First Passage for "+str(censored)+" censored values"
+            plt.title(label2)
+            plt.xlabel("Number of time steps")
+            plt.ylabel("Synchronisation probability")
+            plt.close()
+            pdf.savefig( fig )                
             time_list.append(sc.gamma(1+(1./popt[1]))*popt[0])
             
     return np.asarray(time_list).reshape(1,-1)[0]    
@@ -70,7 +84,7 @@ def stats(p,label,truncated=1):
     conv_time_array = np.ma.array(p[:,2], mask=np.logical_not(convergence_array))
     visits_ratio_array = np.ma.array(p[:,3], mask=np.logical_not(convergence_array))
     percentage_tot_agents_with_info_array = np.ma.array(p[:,4], mask=np.logical_not(convergence_array))    
-    first_passage_time_array=np.ma.array(expanded_stats(p[:,5:]),mask=np.logical_not(convergence_array))
+    first_passage_time_array=np.ma.array(expanded_stats(p[:,5:],label),mask=np.logical_not(convergence_array))
     
     if truncated==1:
         convergence_time_array.mask=np.ma.nomask
@@ -116,11 +130,12 @@ def stats(p,label,truncated=1):
                 plt.plot(compute[:,0],F,'b',linewidth=5,label="K-M stats")
                 plt.legend()
                 plt.ylim(0,1)
-                label="Alpha "+str(label[1])+" Rho "+str(label[2])+" Population "+str(int(label[3]))+" Time of Convergence"
-                plt.title(label)
+                label2="Alpha "+str(label[1])+" Rho "+str(label[2])+" Population "+str(int(label[3]))+" Time of Convergence"
+                plt.title(label2)
                 plt.xlabel("Number of time steps")
                 plt.ylabel("Synchronisation probability")
                 pdf.savefig( fig )
+                plt.close()
 
                 #plt.show()
                 # Uncomment top line to view the fit
@@ -162,11 +177,12 @@ def stats(p,label,truncated=1):
                 plt.plot(data,F,'g',linewidth=5,label="K-M stats")
                 plt.legend()
                 plt.ylim(0,1)
-                label="Alpha "+str(label[1])+" Rho "+str(label[2])+" Population "+str(int(label[3]))+" Time of First Passage"
-                plt.title(label)
+                label2="Alpha "+str(label[1])+" Rho "+str(label[2])+" Population "+str(int(label[3]))+" Time of First Passage"
+                plt.title(label2)
                 plt.xlabel("Number of time steps")
                 plt.ylabel("Synchronisation probability")
                 pdf.savefig( fig )
+                plt.close()
 
             except:
                 Tpass2=np.nan
@@ -278,7 +294,7 @@ def plot_design(data,x,y,out,plttype,title,unbounded,rho=None,alpha=None,size=No
              pdf.savefig( fig )
         elif plttype=="lmplot":
              pdf.savefig( fig.fig )
-        #plt.show()
+        plt.show()
 
 def subtract(a, b,tail='.dat'):
     a="".join(a.rsplit(tail))
