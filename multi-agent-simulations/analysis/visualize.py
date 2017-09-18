@@ -55,7 +55,7 @@ def aggregate_stats(data):
         time_list=[]
         for swarm in range(len(swarms)):
             time_list.append(data[config*len(swarms)+swarm,9:9+100*swarms[swarm]])
-        dataset.append(data[config,:3].tolist()+list(chain.from_iterable(time_list)))
+        dataset.append(data[config*len(swarms)+swarm,:3].tolist()+list(chain.from_iterable(time_list)))
     dataset=np.asarray(dataset)
     time_list=[]
     for sample in range(dataset.shape[0]):
