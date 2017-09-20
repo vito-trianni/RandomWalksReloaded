@@ -42,10 +42,11 @@ class Exp(st.rv_continuous):
 
 def aggregate_stats(data):
     data=pd.DataFrame(data)
+    data.to_csv('checkthis.csv')
     data=np.asarray(data)
     ## Bias 0, Alpha 1, Rho 2, Population 3, Convergence Bool 4, Convergence Time 5, Relative Convergence 6,
     ## PhiC 7, Ratio of Agents with Info 8, 9 onwards is first times of passage
-    ind=np.lexsort((data[:,2], data[:,1]))
+    ind=np.lexsort((data[:,3],data[:,2], data[:,1]))
     data=data[ind]
     dataset=[]
     swarms=np.unique(data[:,3],return_counts=False)
@@ -61,13 +62,16 @@ def aggregate_stats(data):
     for sample in range(dataset.shape[0]):
         censored=np.sum(np.isnan(dataset[sample,3:]))
         if censored==(dataset.shape[1]-3):
-            time_list.append(np.nan)
+            for swarm in range(len(swarms)):
+                time_list.append(data[len(swarms)*sample+swarm,:9].tolist()+[np.nan,np.nan])
         elif censored==0:
-            time_list.append(np.mean(dataset[sample,3:]))
+            for swarm in range(len(swarms)):
+                time_list.append(data[len(swarms)*sample+swarm,:9].tolist()+[np.mean(dataset[sample,3:]),np.mean(dataset[sample,3:])])
         else:
             subset=dataset[sample,3:]
             subset=subset[np.argsort(subset)]
             uncensored=subset.size
+
             subset=subset[:-censored]
             n_est=np.asarray(range(0,subset.size))[::-1] + float(censored)
             RT_sync=[]
@@ -100,6 +104,7 @@ def aggregate_stats(data):
             for swarm in range(len(swarms)):
                 time_list.append(data[len(swarms)*sample+swarm,:9].tolist()+[1./popt_exponential[0],sc.gamma(1+(1./popt_weibull[1]))*popt_weibull[0]])
     
+
     return np.asarray(time_list)    
 
 def stats(p,label,truncated=1):
@@ -332,14 +337,14 @@ def main():
     log=pd.DataFrame(log)
     log.columns=["Bias","Levy-Exponent-Alpha","CRW-Exponent-Rho","Population-Size"]+["Convergence_Count","Convergence-Time","Relative Convergence Time",
                                                                                      "Ratio of Total Visits","Percentage of Total Agents with Info","First Time of Passage (Exponential)","First Time of Passage (Weibull)"]                                                                             
-    plot_design(log,"CRW-Exponent-Rho","Levy-Exponent-Alpha","First Time of Passage (Exponential)","heatmap","Average First Passage Time (Exponential) for all Populations",unbounded)
-    plot_design(log,"CRW-Exponent-Rho","Levy-Exponent-Alpha","First Time of Passage (Weibull)","heatmap","Average First Passage Time (Weibull) for all Populations",unbounded)
+    #plot_design(log,"CRW-Exponent-Rho","Levy-Exponent-Alpha","First Time of Passage (Exponential)","heatmap","Average First Passage Time (Exponential) for all Populations",unbounded)
+    #plot_design(log,"CRW-Exponent-Rho","Levy-Exponent-Alpha","First Time of Passage (Weibull)","heatmap","Average First Passage Time (Weibull) for all Populations",unbounded)
     
-    plot_design(log,"CRW-Exponent-Rho","Levy-Exponent-Alpha","Ratio of Total Visits","heatmap","PhiC ratio of Visited to Total Agents",unbounded)
-    plot_design(log,"Population-Size","Convergence-Time","CRW-Exponent-Rho","lmplot","Convergence Times for Alpha=1.6",unbounded,alpha=1.6)
-    plot_design(log,"Population-Size","Convergence-Time","Levy-Exponent-Alpha","lmplot","Convergence Times for Rho=0.6",unbounded,rho=0.6)
-    plot_design(log,"CRW-Exponent-Rho","Levy-Exponent-Alpha","Convergence-Time","heatmap","Total Convergence Time for Population 10",unbounded,size=10)
-    plot_design(log,"CRW-Exponent-Rho","Levy-Exponent-Alpha","Convergence-Time","heatmap","Total Convergence Time for Population 100",unbounded,size=100)
+    #plot_design(log,"CRW-Exponent-Rho","Levy-Exponent-Alpha","Ratio of Total Visits","heatmap","PhiC ratio of Visited to Total Agents",unbounded)
+    #plot_design(log,"Population-Size","Convergence-Time","CRW-Exponent-Rho","lmplot","Convergence Times for Alpha=1.6",unbounded,alpha=1.6)
+    #plot_design(log,"Population-Size","Convergence-Time","Levy-Exponent-Alpha","lmplot","Convergence Times for Rho=0.6",unbounded,rho=0.6)
+    #plot_design(log,"CRW-Exponent-Rho","Levy-Exponent-Alpha","Convergence-Time","heatmap","Total Convergence Time for Population 10",unbounded,size=10)
+    #plot_design(log,"CRW-Exponent-Rho","Levy-Exponent-Alpha","Convergence-Time","heatmap","Total Convergence Time for Population 100",unbounded,size=100)
     pdf.close()
 
 
