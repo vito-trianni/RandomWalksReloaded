@@ -39,8 +39,19 @@ class Exp(st.rv_continuous):
         st.rv_continuous.__init__(self,a=lower_bound)
     def cdf(self,x,lamda):
         return 1 - np.exp(-lamda*x)
+def correct_index(f):
+	if round(f)!=float(int(f)):
+		if round(f)==float(int(f)+1):
+			return int(f)+1
+		elif round(f)==float(int(f)-1):
+			return int(f)-1
+	else:
+		return int(f)
 
-def aggregate_stats(data):
+
+
+
+def aggregate_stats(data,truncated=1):
     data=pd.DataFrame(data)
     data.to_csv('checkthis.csv')
     data=np.asarray(data)
@@ -201,21 +212,24 @@ class Variable_Dictionary:
     def get_copied(self):
         return self.copied
 
-def plot_design(data,x,y,out,plttype,title,unbounded,rho=None,alpha=None,size=None):
+def plot_design(data,x,y,out,plttype,title,arena,rho=None,alpha=None,size=None):
 	## General preprocessing
     data.index=map(str,np.arange(0,data.shape[0],1))
     plttype=str(plttype)
     title=str(title)
-    if unbounded == 0:
-        graph_limit=3.5e5
-        title+=" for Bounded"
-    else:
-        title+=" for Unbounded"
-        graph_limit=3.5e5
+    if arena == 0:
+        graph_limit=1.5e3
+        title+=" for Unbounded Arena"
+    elif arena == 1:
+        title+=" for Bounded Arena"
+        graph_limit=1.5e3
+    elif arena == 2:
+        title+=" for Periodic Arena"
+        graph_limit=1.5e3
 
-    levy_alpha_range=map(str,np.linspace(1.1,2.0,10))
-    crw_rho_range=map(str,np.linspace(0,0.9,7))
-    pop_n_range=map(str,np.linspace(10,100,10))
+    levy_alpha_range=map(str,np.linspace(1,2,6))
+    crw_rho_range=map(str,np.linspace(0.15,0.9,6))
+    pop_n_range=map(str,np.linspace(10,200,20))
 
     levy_alpha=Variable_Dictionary("Levy-Exponent-Alpha",levy_alpha_range,alpha)
     crw_rho=Variable_Dictionary("CRW-Exponent-Rho",crw_rho_range,rho)
@@ -255,18 +269,20 @@ def plot_design(data,x,y,out,plttype,title,unbounded,rho=None,alpha=None,size=No
 
     if plttype=="heatmap":
         ## Make bins
-        bin_y=np.asarray((np.asarray(data[y.name])-float(y.length[0]))/(float(y.length[-1])-float(y.length[-2])))
-        bin_x=np.asarray((np.asarray(data[x.name])-float(x.length[0]))/(float(x.length[-1])-float(x.length[-2])))
+        bin_y=(np.asarray(np.asarray(data[y.name]).copy())-float(y.length[0]))/(float(y.length[-1])-float(y.length[-2]))
+        bin_x=(np.asarray(np.asarray(data[x.name]).copy())-float(x.length[0]))/(float(x.length[-1])-float(x.length[-2]))
         ## Uncomment this to verify your data
+        #data.to_csv('final_data.csv')
         bin_y=len(y.length)-bin_y-1
         dummy = np.zeros((len(y.length),len(x.length)))
 
 	## Fill values
-        for k in range(data.shape[0]):
+        for ind in range(data.shape[0]):
         # I am putting a -1 in these indices because Python2.7 seems to convert float 2.0 to int 1. Weird. Pls remove if you don't have this bug.
-            #print bin_x[k]
-            #print int(bin_x[k])
-            dummy[int(bin_y[k]),int(bin_x[k]+1)]+=data[out][k]
+            #print bin_y[ind], bin_x[ind]
+            #print "Y",correct_index(bin_y[ind]), "X",correct_index(bin_x[ind])
+
+            dummy[correct_index(bin_y[ind]),correct_index(bin_x[ind])]+=data[out][ind]
             ## A const value check:
         if z.average!=0:
             dummy/=z.average
@@ -280,8 +296,8 @@ def plot_design(data,x,y,out,plttype,title,unbounded,rho=None,alpha=None,size=No
         scatter_kwargs={"s":100}
         data=data[~data.isnull()]
                 
-        fig=sns.lmplot(x=x.name,y=y.name,data=data,hue=out,legend_out=False,fit_reg=False,scatter=True,markers="o",size=7,aspect=1.3,scatter_kws=scatter_kwargs)
-        #plt.ylim(0,y.length)
+        fig=sns.lmplot(x=x.name,y=y.name,data=data,hue=out,legend_out=False,fit_reg=False,order=2,scatter=True,markers="o",size=7,aspect=1.3,scatter_kws=scatter_kwargs)
+        plt.ylim(0,y.length)
 
     sns.plt.xlabel(x.name)
     sns.plt.ylabel(y.name)
@@ -299,7 +315,7 @@ def main():
     global hola
     ap = argparse.ArgumentParser()
     ap.add_argument("-t", "--truncated", help="1 or 0")
-    ap.add_argument("-u", "--unbounded", help="0 or 1")
+    ap.add_argument("-u", "--arena", help="0 for unbounded, 1 for bounded and 2 for periodic")
     ap.add_argument("-p", "--path", help="enter path")
     ap.add_argument("-l", "--timelimit", help="Enter unique filename prefix for time limit") 
     args=vars(ap.parse_args())
@@ -307,7 +323,7 @@ def main():
         truncated=0
     else:
         truncated=int(args["truncated"])
-    unbounded=int(args["unbounded"])
+    arena=int(args["arena"])
     path=str(args["path"])
     if args.get("timelimit") is None:
         prefix='result'
@@ -323,28 +339,29 @@ def main():
             for i in range(len(file_dict)):
                 #name_labels.append(str([''.join(g) for _, g in groupby(file_dict[i], str.isalpha)][0]))
                 k.append(float([''.join(g) for _, g in groupby(file_dict[i], str.isalpha)][1]))
-            if unbounded == 1 and len(k)==5:
+            if arena == 0 and len(k)==5:
                 #name_labels=name_labels[1:]
                 k=k[1:]
                 save = True
-            elif unbounded == 0 and len(k)==4:
+            elif arena != 0 and len(k)==4:
                 save = True
             if save:
                 b=np.genfromtxt(filepath)
-                k+=stats(b,k)
+                k+=stats(b,k,truncated)
                 log.append(k)
-    log=aggregate_stats(log)
+    log=aggregate_stats(log,truncated)
     log=pd.DataFrame(log)
     log.columns=["Bias","Levy-Exponent-Alpha","CRW-Exponent-Rho","Population-Size"]+["Convergence_Count","Convergence-Time","Relative Convergence Time",
                                                                                      "Ratio of Total Visits","Percentage of Total Agents with Info","First Time of Passage (Exponential)","First Time of Passage (Weibull)"]                                                                             
-    #plot_design(log,"CRW-Exponent-Rho","Levy-Exponent-Alpha","First Time of Passage (Exponential)","heatmap","Average First Passage Time (Exponential) for all Populations",unbounded)
-    #plot_design(log,"CRW-Exponent-Rho","Levy-Exponent-Alpha","First Time of Passage (Weibull)","heatmap","Average First Passage Time (Weibull) for all Populations",unbounded)
+    plot_design(log,"CRW-Exponent-Rho","Levy-Exponent-Alpha","First Time of Passage (Exponential)","heatmap","Average First Passage Time (Exponential) for all Populations",arena)
+    plot_design(log,"CRW-Exponent-Rho","Levy-Exponent-Alpha","First Time of Passage (Weibull)","heatmap","Average First Passage Time (Weibull) for all Populations",arena)
     
-    #plot_design(log,"CRW-Exponent-Rho","Levy-Exponent-Alpha","Ratio of Total Visits","heatmap","PhiC ratio of Visited to Total Agents",unbounded)
-    #plot_design(log,"Population-Size","Convergence-Time","CRW-Exponent-Rho","lmplot","Convergence Times for Alpha=1.6",unbounded,alpha=1.6)
-    #plot_design(log,"Population-Size","Convergence-Time","Levy-Exponent-Alpha","lmplot","Convergence Times for Rho=0.6",unbounded,rho=0.6)
-    #plot_design(log,"CRW-Exponent-Rho","Levy-Exponent-Alpha","Convergence-Time","heatmap","Total Convergence Time for Population 10",unbounded,size=10)
-    #plot_design(log,"CRW-Exponent-Rho","Levy-Exponent-Alpha","Convergence-Time","heatmap","Total Convergence Time for Population 100",unbounded,size=100)
+    plot_design(log,"CRW-Exponent-Rho","Levy-Exponent-Alpha","Ratio of Total Visits","heatmap","PhiC ratio of Visited to Total Agents",arena)
+    plot_design(log,"Population-Size","Convergence-Time","CRW-Exponent-Rho","lmplot","Convergence Times for Alpha=1.4",arena,alpha=1.4)
+    plot_design(log,"Population-Size","Convergence-Time","Levy-Exponent-Alpha","lmplot","Convergence Times for Rho=0.75",arena,rho=0.75)
+    plot_design(log,"CRW-Exponent-Rho","Levy-Exponent-Alpha","Convergence-Time","heatmap","Total Convergence Time for Population 20",arena,size=20)
+    plot_design(log,"CRW-Exponent-Rho","Levy-Exponent-Alpha","Convergence-Time","heatmap","Total Convergence Time for Population 100",arena,size=100)
+    plot_design(log,"CRW-Exponent-Rho","Levy-Exponent-Alpha","Convergence-Time","heatmap","Total Convergence Time for Population 200",arena,size=200)
     pdf.close()
 
 
