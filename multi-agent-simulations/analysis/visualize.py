@@ -100,6 +100,8 @@ def aggregate_stats(data,truncated=1):
             fig=plt.figure()
             y_exp=exponential.cdf(subset,popt_exponential[0])
             y_weib=weibull.cdf(subset,popt_weibull[0],popt_weibull[1])
+            error_exp= np.power(y_exp-np.squeeze(F),2)
+            error_weib=np.power(y_weib-np.squeeze(F),2)
             plt.plot(subset,y_exp,'g',linewidth=5,label="Exponential Distribution")
             plt.plot(subset,y_weib,'r',linewidth=5,label="Weibull Distribution")
             plt.plot(subset,F,'b',linewidth=5,label="K-M stats")
@@ -110,6 +112,16 @@ def aggregate_stats(data,truncated=1):
             plt.xlabel("Number of time steps")
             plt.ylabel("Synchronisation probability")
             #plt.show()
+            plt.close()
+            pdf.savefig( fig )
+            fig=plt.figure()
+            plt.plot(subset,error_exp,'r--',label="for Exponential Distribution")
+            plt.plot(subset,error_weib,'g--',label="for Weibull Distribution")
+            plt.xlabel("Number of Time Steps")
+            plt.ylabel("Mean Square Error")
+            plt.legend()
+            label="Alpha "+str(dataset[sample,1])+" Rho "+str(dataset[sample,2])+" L2 Error between Distribution and K-M Statistics for "+str(censored)+"/"+str(uncensored)+" censored values"
+            plt.title(label)
             plt.close()
             pdf.savefig( fig )
             for swarm in range(len(swarms)):
@@ -228,7 +240,7 @@ def plot_design(data,x,y,out,plttype,title,arena,rho=None,alpha=None,size=None):
         graph_limit=1.5e3
 
     levy_alpha_range=map(str,np.linspace(1,2,6))
-    crw_rho_range=map(str,np.linspace(0.15,0.9,6))
+    crw_rho_range=map(str,np.linspace(0,0.9,7))
     pop_n_range=map(str,np.linspace(10,200,20))
 
     levy_alpha=Variable_Dictionary("Levy-Exponent-Alpha",levy_alpha_range,alpha)
