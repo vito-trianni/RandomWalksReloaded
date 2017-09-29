@@ -20,6 +20,7 @@ import argparse
 import glob
 import os
 from itertools import groupby, chain
+from collections import defaultdict
 import scipy.stats as st
 import scipy.special as sc
 import copy
@@ -225,7 +226,7 @@ class Variable_Dictionary:
     def get_copied(self):
         return self.copied
 
-def plot_design(data,x,y,out,plttype,title,arena,comm_data=False,rho=None,alpha=None,size=None,comm=None,seperator=False):
+def plot_design(data,x,y,out,plttype,title,arena,comm_data=False,rho=None,alpha=None,size=None,comm=None,separator=False):
 	## General preprocessing
     data.index=map(str,np.arange(0,data.shape[0],1))
     plttype=str(plttype)
@@ -272,7 +273,7 @@ def plot_design(data,x,y,out,plttype,title,arena,comm_data=False,rho=None,alpha=
             z=copy.deepcopy(dict_variables[i])
             dict_inputs.append(z)
     new_flag=np.sum(np.logical_not(map(Variable_Dictionary.get_fixed,dict_variables)))        
-    if (not comm_data and new_flag==len(dict_variables)) or (comm_data and new_flag>=len(dict_variables)-1 and not seperator):
+    if (not comm_data and new_flag==len(dict_variables)) or (comm_data and new_flag>=len(dict_variables)-1 and not separator):
         unused_to_average= np.where(np.logical_not(map(Variable_Dictionary.get_copied,dict_variables[0:len(dict_variables)-1])))[0]
         average_value=1
         ## Changed this line to choose between out and unused variables
@@ -291,43 +292,75 @@ def plot_design(data,x,y,out,plttype,title,arena,comm_data=False,rho=None,alpha=
         
 
     if plttype=="heatmap":
-        ## Make bins
-        bin_y=(np.asarray(np.asarray(data[y.name]).copy())-float(y.length[0]))/(float(y.length[-1])-float(y.length[-2]))
-        bin_x=(np.asarray(np.asarray(data[x.name]).copy())-float(x.length[0]))/(float(x.length[-1])-float(x.length[-2]))
-        ## Uncomment this to verify your data
-        #data.to_csv('final_data.csv')
-        bin_y=len(y.length)-bin_y-1
-        dummy = np.zeros((len(y.length),len(x.length)))
 
 	## Fill values
-        for ind in range(data.shape[0]):
-        # I am putting a -1 in these indices because Python2.7 seems to convert float 2.0 to int 1. Weird. Pls remove if you don't have this bug.
-            #print bin_y[ind], bin_x[ind]
-            #print "Y",correct_index(bin_y[ind]), "X",correct_index(bin_x[ind])
+        if separator!=False:
+            dummy=dict()
+            for l in range(np.unique(data[separator].shape[0])):
+                dummy[l]=np.zeros((len(y.length),len(x.length)))
+            #print data.groupby(separator)
+            fig,axs=plt.subplots(figsize=(100,100),nrows=2,ncols=int(np.ceil(np.unique(data[separator]).shape[0]/2.0)),gridspec_kw={"height_ratios":(1.05,1.05)})
+            targets=zip(np.unique(data[separator]),axs.flatten())
+            for i, (key,ax) in enumerate(targets):
+                sep_data=data[data[separator]==key]
+                sep_data.index=map(str,np.arange(0,sep_data.shape[0],1))
+                
+                for ind in range(sep_data.shape[0]):
+                    bin_y=(np.asarray(np.asarray(sep_data[y.name]).copy())-float(y.length[0]))/(float(y.length[-1])-float(y.length[-2]))
+                    bin_x=(np.asarray(np.asarray(sep_data[x.name]).copy())-float(x.length[0]))/(float(x.length[-1])-float(x.length[-2]))
+                    ## Uncomment this to verify your data
+                    bin_y=len(y.length)-bin_y-1
+                    
+                    # I am putting a -1 in these indices because Python2.7 seems to convert float 2.0 to int 1. Weird. Pls remove if you don't have this bug.
+                    #print bin_y[ind], bin_x[ind]
+                    #print "Y",correct_index(bin_y[ind]), "X",correct_index(bin_x[ind])
+                    dummy[i][correct_index(bin_y[ind]),correct_index(bin_x[ind])]+=sep_data[out][ind]
+                    ## A const value check:
+                if z.average!=0:
+                    dummy[i]/=z.average
+                dummy[i]=pd.DataFrame(dummy[i])
+                dummy[i].columns=x.length
+                dummy[i].index=y.length[::-1]
+                sns.heatmap(dummy[i],annot=True,ax=ax,fmt=".0f")
+                ax.set_title(separator+'='+str(key))
 
-            dummy[correct_index(bin_y[ind]),correct_index(bin_x[ind])]+=data[out][ind]
-            ## A const value check:
-        if z.average!=0:
-            dummy/=z.average
-        ## Label heat map
-        dummy=pd.DataFrame(dummy)
-        dummy.columns=x.length
-        dummy.index=y.length[::-1]
-        fig=plt.figure()
-        sns.heatmap(dummy,annot=True)
+        else:
+            ## Make bins
+            bin_y=(np.asarray(np.asarray(data[y.name]).copy())-float(y.length[0]))/(float(y.length[-1])-float(y.length[-2]))
+            bin_x=(np.asarray(np.asarray(data[x.name]).copy())-float(x.length[0]))/(float(x.length[-1])-float(x.length[-2]))
+            ## Uncomment this to verify your data
+            #data.to_csv('final_data.csv')
+            bin_y=len(y.length)-bin_y-1
+            dummy = np.zeros((len(y.length),len(x.length)))
+            for ind in range(data.shape[0]):
+                # I am putting a -1 in these indices because Python2.7 seems to convert float 2.0 to int 1. Weird. Pls remove if you don't have this bug.
+                #print bin_y[ind], bin_x[ind]
+                #print "Y",correct_index(bin_y[ind]), "X",correct_index(bin_x[ind])
+                dummy[correct_index(bin_y[ind]),correct_index(bin_x[ind])]+=data[out][ind]
+                ## A const value check:
+            if z.average!=0:
+                dummy/=z.average
+            dummy=pd.DataFrame(dummy)
+            dummy.columns=x.length
+            dummy.index=y.length[::-1]
+            fig=plt.figure()
+            sns.heatmap(dummy,annot=True)
+
+        
     elif plttype=="lmplot":
         scatter_kwargs={"s":100}
         data=data[~data.isnull()]
-        if seperator==False:
+        if separator==False:
             fig=sns.lmplot(x=x.name,y=y.name,data=data,hue=out,legend_out=False,fit_reg=False,order=2,scatter=True,markers="o",size=7,aspect=1.3,scatter_kws=scatter_kwargs)
         else:
-            fig=sns.lmplot(x=x.name,y=y.name,data=data,hue=out,legend_out=False,fit_reg=False,order=2,scatter=True,markers="o",size=7,aspect=1.3,scatter_kws=scatter_kwargs,column=seperator)
+            fig=sns.lmplot(x=x.name,y=y.name,data=data,hue=out,legend_out=False,fit_reg=False,order=2,scatter=True,markers="o",size=7,aspect=1.3,scatter_kws=scatter_kwargs,col=separator)
 
         plt.ylim(0,y.length)
 
     sns.plt.xlabel(x.name)
     sns.plt.ylabel(y.name)
     sns.plt.suptitle(title)
+    sns.plt.subplots_adjust(top=0.92,left=0.04,right=0.98,wspace=0.05,hspace=0.15)
     if plttype=="heatmap":
         pdf.savefig( fig )
     elif plttype=="lmplot":
@@ -392,11 +425,11 @@ def main():
     #plot_design(log,"CRW-Exponent-Rho","Levy-Exponent-Alpha","First Time of Passage (Weibull)","heatmap","Average First Passage Time (Weibull) for all Populations",arena,comm_data=comm_data)
     
     #plot_design(log,"CRW-Exponent-Rho","Levy-Exponent-Alpha","Ratio of Total Visits","heatmap","PhiC ratio of Visited to Total Agents",arena,comm_data=comm_data)
-    plot_design(log,"Population-Size","Convergence-Time","CRW-Exponent-Rho","lmplot","Convergence Times for Alpha=1.4",arena,comm_data=comm_data,alpha=1.4,seperator="Communication-Range")
+    #plot_design(log,"Population-Size","Convergence-Time","CRW-Exponent-Rho","lmplot","Convergence Times for Alpha=1.4",arena,comm_data=comm_data,alpha=1.4,separator="Communication-Range")
     #plot_design(log,"Communication-Range","Convergence-Time","CRW-Exponent-Rho","lmplot","Convergence Times for Alpha=1.4",arena,comm_data=comm_data,alpha=1.4)
     #plot_design(log,"Population-Size","Convergence-Time","Levy-Exponent-Alpha","lmplot","Convergence Times for Rho=0.75",arena,comm_data=comm_data,rho=0.75)
     #plot_design(log,"Communication-Range","Convergence-Time","Levy-Exponent-Alpha","lmplot","Convergence Times for Rho=0.75",arena,comm_data=comm_data,rho=0.75)
-    #plot_design(log,"CRW-Exponent-Rho","Levy-Exponent-Alpha","Convergence-Time","heatmap","Total Convergence Time for Population 20",arena,comm_data=comm_data,size=20)
+    plot_design(log,"CRW-Exponent-Rho","Levy-Exponent-Alpha","Convergence-Time","heatmap","Total Convergence Time for Population 20",arena,comm_data=comm_data,size=20,separator="Communication-Range")
     #plot_design(log,"CRW-Exponent-Rho","Levy-Exponent-Alpha","Convergence-Time","heatmap","Total Convergence Time for Range 0.2",arena,comm_data=comm_data,comm=.2)
     #plot_design(log,"CRW-Exponent-Rho","Levy-Exponent-Alpha","Convergence-Time","heatmap","Total Convergence Time for Population 100",arena,comm_data=comm_data,size=100)
     #plot_design(log,"CRW-Exponent-Rho","Levy-Exponent-Alpha","Convergence-Time","heatmap","Total Convergence Time for Population 200",arena,comm_data=comm_data,size=200)
