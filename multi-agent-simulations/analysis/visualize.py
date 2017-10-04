@@ -247,7 +247,7 @@ def plot_design(data,x,y,out,plttype,title,arena,comm_data=False,rho=None,alpha=
     levy_alpha_range=map(str,np.linspace(1,2,6))
     crw_rho_range=map(str,np.linspace(0,0.9,7))
     pop_n_range=map(str,np.linspace(10,200,20))
-    comm_rad_range=map(str,np.array([0.0125,0.1,0.2,0.25,0.5]))
+    comm_rad_range=map(str,np.array([0.0125,0.025,0.05,0.1,0.2]))
 
     levy_alpha=Variable_Dictionary("Levy-Exponent-Alpha",levy_alpha_range,alpha)
     crw_rho=Variable_Dictionary("CRW-Exponent-Rho",crw_rho_range,rho)
@@ -353,7 +353,6 @@ def plot_design(data,x,y,out,plttype,title,arena,comm_data=False,rho=None,alpha=
 
         
     elif plttype=="lmplot":
-        print data
         scatter_kwargs={"s":100}
         data=data[~data.isnull()]
         if separator==False:
@@ -438,10 +437,10 @@ def main():
     plot_design(log,"Communication-Range","Convergence-Time","Levy-Exponent-Alpha","lmplot","Convergence Times for Rho=0.75",arena,comm_data=comm_data,rho=0.75,separator="Population-Size")
     
     plot_design(log,"CRW-Exponent-Rho","Levy-Exponent-Alpha","Convergence-Time","heatmap","Total Convergence Time for Range 0.0125",arena,comm_data=comm_data,comm=.0125,separator="Population-Size")
+    plot_design(log,"CRW-Exponent-Rho","Levy-Exponent-Alpha","Convergence-Time","heatmap","Total Convergence Time for Range 0.0250",arena,comm_data=comm_data,comm=.025,separator="Population-Size")    
+    plot_design(log,"CRW-Exponent-Rho","Levy-Exponent-Alpha","Convergence-Time","heatmap","Total Convergence Time for Range 0.05",arena,comm_data=comm_data,comm=.05,separator="Population-Size")    
     plot_design(log,"CRW-Exponent-Rho","Levy-Exponent-Alpha","Convergence-Time","heatmap","Total Convergence Time for Range 0.1",arena,comm_data=comm_data,comm=.1,separator="Population-Size")    
-    plot_design(log,"CRW-Exponent-Rho","Levy-Exponent-Alpha","Convergence-Time","heatmap","Total Convergence Time for Range 0.2",arena,comm_data=comm_data,comm=.2,separator="Population-Size")    
-    plot_design(log,"CRW-Exponent-Rho","Levy-Exponent-Alpha","Convergence-Time","heatmap","Total Convergence Time for Range 0.25",arena,comm_data=comm_data,comm=.25,separator="Population-Size")    
-    plot_design(log,"CRW-Exponent-Rho","Levy-Exponent-Alpha","Convergence-Time","heatmap","Total Convergence Time for Range 0.5",arena,comm_data=comm_data,comm=.5,separator="Population-Size")
+    plot_design(log,"CRW-Exponent-Rho","Levy-Exponent-Alpha","Convergence-Time","heatmap","Total Convergence Time for Range 0.2",arena,comm_data=comm_data,comm=.2,separator="Population-Size")
     
     plot_design(log,"CRW-Exponent-Rho","Levy-Exponent-Alpha","Convergence-Time","heatmap","Total Convergence Time for Population 10",arena,comm_data=comm_data,size=10,separator="Communication-Range")    
     plot_design(log,"CRW-Exponent-Rho","Levy-Exponent-Alpha","Convergence-Time","heatmap","Total Convergence Time for Population 20",arena,comm_data=comm_data,size=20,separator="Communication-Range")
