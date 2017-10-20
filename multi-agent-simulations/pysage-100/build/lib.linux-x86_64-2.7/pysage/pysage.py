@@ -1028,12 +1028,9 @@ class Arena:
     # return a list of neighbours
     def get_neighbour_agents( self, agent, distance_range ):
         neighbour_list = []
-        print "ME", agent.position
         for a in self.agents:
             if (a is not agent) and (self.distance_on_torus(a.position,agent.position) < distance_range):
                 neighbour_list.append(a)
-        print neighbour_list
-        print agent.position
         return neighbour_list
         
         
