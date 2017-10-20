@@ -3,7 +3,7 @@
     <gui pkg="randomwalk" delay="1" pixels_per_meter="500" />
 	<arena pkg="randomwalk" timestep_length="0.5" size="1,1"
                max_steps="100000" num_agents="10"  num_runs="50"
-               arena_type="bounded" num_targets="1" target_distance="0.5" target_size="0.02">
+               arena_type="periodic" num_targets="1" target_distance="0.5" target_size="0.02">
         	<agent pkg="randomwalk" linear_speed="0.01" CRW_exponent="0.9" average_motion_steps="0" std_motion_steps="5"  levy_exponent="2.0"   interaction_range="0.1"  bias_probability ="0.1" />
    	</arena>
 </configuration>

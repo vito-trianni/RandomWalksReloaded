@@ -172,8 +172,12 @@ class CRWLEVYArena(pysage.Arena):
     def get_neighbour_agents( self, agent, distance_range ):
         neighbour_list = []
         for a in self.agents:
-            if (a is not agent) and ((a.position - agent.position).get_length() < distance_range):
-                neighbour_list.append(a)
+            if self.arena_type=="periodic":
+                if (a is not agent) and (self.distance_on_torus(a.position,agent.position) < distance_range):
+                    neighbour_list.append(a)
+            else:
+                if (a is not agent) and ((a.position - agent.position).get_length() < distance_range):
+                    neighbour_list.append(a)
         return neighbour_list
 
     ##########################################################################

@@ -143,6 +143,7 @@ class CRWLEVYAgent(pysage.Agent):
     ##########################################################################
     def control(self):
         # first check if some target is within the interaction range
+
         for t in self.arena.targets:
             if (t.position - self.position).get_length() < t.size:
                 if not self.on_target:
@@ -245,11 +246,6 @@ class CRWLEVYAgent(pysage.Agent):
     ##########################################################################
     def inventory_size( self ):
        return len(self.inventory)
-
-
-
-
-
     
 
 
