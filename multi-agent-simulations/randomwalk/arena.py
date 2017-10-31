@@ -238,8 +238,21 @@ class CRWLEVYArena(pysage.Arena):
             except:
                 first_times.append(np.nan) #list that contains all first arrival time
         return first_times
-	
-            
+    ##########################################################################
+    # return matrix of distances from target every 5000 timesteps
+    # for one single run
+    ##########################################################################
+    def distance_from_target_matrix(self):
+        distances=[]
+        expected_k=self.max_steps/5000
+        if self.num_steps >= self.max_steps:
+            for a in self.agents:
+                distances.append(a.distance_from_target[:])
+        else:
+            for a in self.agents:
+                distances.append(a.distance_from_target[:]+[np.nan]*(expected_k-len(a.distance_from_target[:])))
+
+        return distances
     ##########################################################################
     # check if the experiment si finished
     ##########################################################################
@@ -252,8 +265,9 @@ class CRWLEVYArena(pysage.Arena):
             conv_time =  self.convergence_time - self.min_first_time
             percentage_tot_agents_with_info = (self.inventory_size*100)/self.num_agents
             total_visits_fraction=total_visits/float(self.num_agents)
-            print "run finished: ", self.has_converged, self.convergence_time, conv_time, total_visits_fraction, percentage_tot_agents_with_info, first_passage_times
-            self.results.store(self.has_converged, self.convergence_time, conv_time,total_visits_fraction, percentage_tot_agents_with_info,first_passage_times)
+            distance_from_target=self.distance_from_target_matrix()
+            print "run finished: ", self.has_converged, self.convergence_time, conv_time, total_visits_fraction, percentage_tot_agents_with_info, self.num_steps
+            self.results.store(self.has_converged, self.convergence_time, conv_time,total_visits_fraction, percentage_tot_agents_with_info,first_passage_times,distance_from_target)
             return True
         return False
         
