@@ -84,7 +84,7 @@ class CRWLEVYAgent(pysage.Agent):
        
         # counter first time enter on target
         self.first_time_step_on_target = []
-        self.distance_from_target=[]
+        self.distance_from_centre=[]
 
 	#counter time enter on the central place
 	## self.step_on_central_place_time = []
@@ -134,7 +134,7 @@ class CRWLEVYAgent(pysage.Agent):
         del self.received_targets[:]
         del self.visited_target_id[:]
         del self.step_on_target_time[:]
-        del self.distance_from_target[:]
+        del self.distance_from_centre[:]
         # del self.step_on_central_place_time[:]
 
         self.on_target = False
@@ -162,8 +162,7 @@ class CRWLEVYAgent(pysage.Agent):
                 self.on_target = False
         if self.arena.arena_type=="unbounded" and (self.arena.num_steps+1)%5000 == 0:
             if self.arena.num_steps>0:
-                for t in self.arena.targets:
-                    self.distance_from_target.append((t.position - self.position).get_length())
+                self.distance_from_centre.append((self.arena.central_place - self.position).get_length())
 
         ## if self.arena_type=="unbounded":
         ##     if(self.arena.central_place.position - self.position).get_length() < self.arena.central_place.size:
