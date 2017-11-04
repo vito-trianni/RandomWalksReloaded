@@ -411,11 +411,11 @@ def plot_design(data,x,y,out,plttype,title,arena,comm_data=False,rho=None,alpha=
             fig=sns.lmplot(x=x,y=y.name,data=data,col="Levy-Exponent-Alpha",hue="CRW-Exponent-Rho",legend_out=False,fit_reg=False,order=2,markers=mkey,scatter=True,size=5,scatter_kws=scatter_kwargs)
             for num in range(len(levy_alpha.length)):
                 for xy in zip(row_vals,map(int,col_vals),matrix_vals):
-                    fig.axes[0][num].annotate('d %s,N %s'%xy[0:2],xy=[np.log10(xy[2]),0],annotation_clip=True,color='grey',alpha=1,size=5,weight='ultralight',va='bottom',rotation=45)
+                    fig.axes[0][num].annotate('d %s,N %s'%xy[0:2],xy=[np.log10(xy[2]),0],annotation_clip=True,color='grey',alpha=1,size=5,weight='ultralight',va='bottom',rotation=90)
                 sns.rugplot([np.log10(1),np.log10(4.51)],height=4,ax=fig.axes[0][num],color='navy',linestyle='dashed')
-                fig.axes[0][num].set_xticks(np.log10(np.unique(matrix_vals)),rotation='vertical')
-                #fig.axes[0][num].xaxis.set_ticklabels([])
-                fig.axes[0][num].tick_params(axis='x',labelsize=5,pad=5)
+                fig.axes[0][num].set_xticks(np.log10(np.unique(matrix_vals)))
+                fig.axes[0][num].xaxis.set_ticklabels(np.log10(np.unique(matrix_vals)),rotation=90)
+                fig.axes[0][num].tick_params(axis='x',labelsize=8)
                 fig.axes[0][num].xaxis.set_major_formatter(ticker.FormatStrFormatter('%0.1f'))
                 fig.axes[0][num].annotate('K=1',xy=[np.log10(1),2],annotation_clip=True,color='indigo',alpha=1,size=8,weight='light',ha='right',va='bottom',rotation=90)
                 fig.axes[0][num].annotate('K=4.51',xy=[np.log10(4.51),2],annotation_clip=True,color='indigo',alpha=1,size=8,weight='light',ha='right',va='bottom',rotation=90)
