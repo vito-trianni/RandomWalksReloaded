@@ -162,7 +162,7 @@ class CRWLEVYAgent(pysage.Agent):
                 self.on_target = False
         if self.arena.arena_type=="unbounded" and (self.arena.num_steps+1)%5000 == 0:
             if self.arena.num_steps>0:
-                self.distance_from_centre.append((self.arena.central_place - self.position).get_length())
+                self.distance_from_centre.append((self.arena.central_place.position - self.position).get_length())
 
         ## if self.arena_type=="unbounded":
         ##     if(self.arena.central_place.position - self.position).get_length() < self.arena.central_place.size:

@@ -32,7 +32,6 @@ import matplotlib.ticker as ticker
 
 hola=[]
 pdf = matplotlib.backends.backend_pdf.PdfPages("output.pdf")
-
 class Weib(st.rv_continuous):
     def __init__(self,lower_bound=0):
         st.rv_continuous.__init__(self,a=lower_bound)
@@ -229,12 +228,13 @@ def stats(p,label,arena,truncated=1,comm_data=0):
     return head
 
 class Variable_Dictionary:
-    def __init__(self,variable_name,range_val,constant_val):
+    def __init__(self,variable_name,range_val,constant_val,power=0):
         self.name=variable_name
         self.length=range_val
         self.fixed=constant_val
         self.copied=False
         self.average=0
+        self.power=power
     def get_fixed(self):
         return self.fixed
     def get_copied(self):
@@ -262,8 +262,8 @@ def plot_design(data,x,y,out,plttype,title,arena,comm_data=False,rho=None,alpha=
 
     levy_alpha=Variable_Dictionary("Levy-Exponent-Alpha",levy_alpha_range,alpha)
     crw_rho=Variable_Dictionary("CRW-Exponent-Rho",crw_rho_range,rho)
-    pop_n=Variable_Dictionary("Population-Size",pop_n_range,size)
-    comm_rad=Variable_Dictionary("Communication-Range",comm_rad_range,comm)
+    pop_n=Variable_Dictionary("Population-Size",pop_n_range,size,power=1)
+    comm_rad=Variable_Dictionary("Communication-Range",comm_rad_range,comm,power=2)
     if plttype=='consensus-plot':
         convergence_time=Variable_Dictionary("Convergence-Time-(Discounted)",graph_limit,None)
     else:
@@ -273,8 +273,15 @@ def plot_design(data,x,y,out,plttype,title,arena,comm_data=False,rho=None,alpha=
         dict_variables=[levy_alpha,crw_rho,pop_n,comm_rad,convergence_time]
     else:
         dict_variables=[levy_alpha,crw_rho,pop_n,convergence_time]
-    z=None
     dict_inputs=[x,y]
+    if plttype=='consensus-plot':
+        dict_variables=dict_variables[2:]
+        if separator==False:
+            dict_inputs=[y]
+        else:
+            dict_inputs=[y,separator]
+    z=None
+    
     ## Additionally add z?
     #data.to_csv('final_data.csv',header=False)
 
@@ -286,9 +293,12 @@ def plot_design(data,x,y,out,plttype,title,arena,comm_data=False,rho=None,alpha=
                 dict_variables[j].copied=True
 
     for i in range(len(dict_variables)):
-        if dict_variables[i].copied==False and dict_variables[i].fixed!=None:
+        if dict_variables[i].copied==False and dict_variables[i].fixed!=None and plttype!='consensus-plot': 
             z=copy.deepcopy(dict_variables[i])
             dict_inputs.append(z)
+        elif dict_variables[i].copied==False and plttype=='consensus-plot' and separator!=False:
+            z=copy.deepcopy(dict_variables[i])
+        
     new_flag=np.sum(np.logical_not(map(Variable_Dictionary.get_fixed,dict_variables)))
     if (not comm_data and new_flag==len(dict_variables)) or (comm_data and new_flag>=len(dict_variables)-1 and not separator):
         unused_to_average= np.where(np.logical_not(map(Variable_Dictionary.get_copied,dict_variables[0:len(dict_variables)-1])))[0]
@@ -298,18 +308,15 @@ def plot_design(data,x,y,out,plttype,title,arena,comm_data=False,rho=None,alpha=
             z=copy.deepcopy(dict_variables[unused_to_average[unused]])
             average_value*=len(list(set(np.unique(data[z.name])).intersection(map(float,z.length))))
         z.average=average_value
-    else:
+    elif plttype!='consensus-plot':
         for i in range(len(dict_inputs)):
             if dict_inputs[i].fixed != None:
-                data=data[data[dict_inputs[i].name]==dict_inputs[i].fixed]
-
-    ## Subset
-    x=copy.deepcopy(dict_inputs[0])
-    y=copy.deepcopy(dict_inputs[1])
-        
+                data=data[data[dict_inputs[i].name]==dict_inputs[i].fixed]    
 
     if plttype=="heatmap":
-
+        ## Subset
+        x=copy.deepcopy(dict_inputs[0])
+        y=copy.deepcopy(dict_inputs[1])
 	## Fill values
         if separator!=False:
             dummy=dict()
@@ -328,9 +335,6 @@ def plot_design(data,x,y,out,plttype,title,arena,comm_data=False,rho=None,alpha=
                     ## Uncomment this to verify your data
                     bin_y=len(y.length)-bin_y-1
                     
-                    # I am putting a -1 in these indices because Python2.7 seems to convert float 2.0 to int 1. Weird. Pls remove if you don't have this bug.
-                    #print bin_y[ind], bin_x[ind]
-                    #print "Y",correct_index(bin_y[ind]), "X",correct_index(bin_x[ind])
                     dummy[i][correct_index(bin_y[ind]),correct_index(bin_x[ind])]+=sep_data[out][ind]
                     ## A const value check:
                 if z.average!=0:
@@ -367,6 +371,9 @@ def plot_design(data,x,y,out,plttype,title,arena,comm_data=False,rho=None,alpha=
 
         
     elif plttype=="lmplot":
+        ## Subset
+        x=copy.deepcopy(dict_inputs[0])
+        y=copy.deepcopy(dict_inputs[1])
         scatter_kwargs={"s":100}
         data=data[~data.isnull()]
         if separator==False:
@@ -376,10 +383,15 @@ def plot_design(data,x,y,out,plttype,title,arena,comm_data=False,rho=None,alpha=
 
         plt.ylim(0,np.max(data[y.name]))
         plt.xlim(0,np.max(np.unique(data[x.name]))+np.min(np.unique(data[x.name])))
-    elif plttype=="consensus-plot":       
+    elif plttype=="consensus-plot":
+        y=copy.deepcopy(dict_inputs[0])
         new_data=data.groupby(["Levy-Exponent-Alpha","CRW-Exponent-Rho"],sort=False)
-        if out!="lmplot":
-            fig,ax1=plt.subplots(nrows=1,ncols=1)
+        if not (out=="lmplot" or out=="violin" or out=="boxplot"):
+            if separator==False:
+                fig,ax1=plt.subplots(nrows=1,ncols=1)
+            else:
+                fig,axs=plt.subplots(figsize=(16,8),nrows=2,ncols=int(np.ceil(np.unique(data[separator]).shape[0]/2.0)),gridspec_kw={"height_ratios":(1.05,1.05)})
+                targets=zip(np.unique(data[separator]),axs.flatten())
         ckey=dict()
         mkey=["^","*","o","p","s","h"]
         mkey=dict(zip(levy_alpha.length,mkey))
@@ -389,47 +401,130 @@ def plot_design(data,x,y,out,plttype,title,arena,comm_data=False,rho=None,alpha=
 
         for name,group in new_data:
             #new_data.get_group(name)
-            if out=="scatter":
-                group.plot(x=x,y=y.name,kind=out,color=ckey[str(name[1])],marker=mkey[str(name[0])],s=20*(name[0]**2),ax=ax1,loglog=True)
-            elif out=="line":
-                group.plot(x=x,y=y.name,kind=out,color=ckey[str(name[1])],marker=mkey[str(name[0])],ax=ax1,loglog=True)
+            if separator==False:
+                if out=="scatter":
+                    group.plot(x=x,y=y.name,kind=out,color=ckey[str(name[1])],marker=mkey[str(name[0])],s=20*(name[0]**2),ax=ax1,loglog=True)
+                elif out=="line":
+                    group.plot(x=x,y=y.name,kind=out,color=ckey[str(name[1])],marker=mkey[str(name[0])],ax=ax1,loglog=True)
+                else:
+                    pass
             else:
-                pass
+                separator=copy.deepcopy(dict_inputs[1])
+                if out=="scatter":
+                    for i, (key,ax) in enumerate(targets):
+                        group[group[separator.name]==key].plot(x=x,y=y.name,kind=out,color=ckey[str(name[1])],marker=mkey[str(name[0])],s=2*(name[0]**2),ax=ax,loglog=True,legend=0)
+                        ax.set_xlabel(x)
+                        ax.set_ylabel(y.name)
+                        ax.set_title(separator.name+'='+str(key))
+                elif out=="line":
+                    for i, (key,ax) in enumerate(targets):
+                        group[group[separator.name]==key].plot(x=x,y=y.name,kind=out,color=ckey[str(name[1])],marker=mkey[str(name[0])],ms=5,linewidth=1,ax=ax,loglog=True,legend=False)
+                        ax.set_xlabel(x)
+                        ax.set_ylabel(y.name)
+                        ax.set_title(separator.name+'='+str(key))
+                else:
+                    pass
+                    
         if out=="lmplot":
+            
             scatter_kwargs={"s":20}
             data[y.name]=np.log10(data[y.name])
             data[x]=np.log10(data[x])
             mkey=["^","*","o","p","s","h","v"]
-            row_vals=np.unique(data["Communication-Range"])
-            col_vals=np.unique(data["Population-Size"])
-            matrix_vals=(np.pi*np.power(row_vals,2).reshape(-1,1)*col_vals.reshape(1,-1)).flatten()
-            row_vals=row_vals.tolist()
-            row_vals=np.meshgrid([[row]*5 for row in row_vals])[0]
-            col_vals=col_vals.tolist()
-            col_vals=col_vals*5
             
-            fig=sns.lmplot(x=x,y=y.name,data=data,col="Levy-Exponent-Alpha",hue="CRW-Exponent-Rho",legend_out=False,fit_reg=False,order=2,markers=mkey,scatter=True,size=5,scatter_kws=scatter_kwargs)
-            for num in range(len(levy_alpha.length)):
-                for xy in zip(row_vals,map(int,col_vals),matrix_vals):
-                    fig.axes[0][num].annotate('d %s,N %s'%xy[0:2],xy=[np.log10(xy[2]),0],annotation_clip=True,color='grey',alpha=1,size=5,weight='ultralight',va='bottom',rotation=90)
-                sns.rugplot([np.log10(1),np.log10(4.51)],height=4,ax=fig.axes[0][num],color='navy',linestyle='dashed')
-                fig.axes[0][num].set_xticks(np.log10(np.unique(matrix_vals)))
-                fig.axes[0][num].xaxis.set_ticklabels(np.log10(np.unique(matrix_vals)),rotation=90)
-                fig.axes[0][num].tick_params(axis='x',labelsize=8)
-                fig.axes[0][num].xaxis.set_major_formatter(ticker.FormatStrFormatter('%0.1f'))
-                fig.axes[0][num].annotate('K=1',xy=[np.log10(1),2],annotation_clip=True,color='indigo',alpha=1,size=8,weight='light',ha='right',va='bottom',rotation=90)
-                fig.axes[0][num].annotate('K=4.51',xy=[np.log10(4.51),2],annotation_clip=True,color='indigo',alpha=1,size=8,weight='light',ha='right',va='bottom',rotation=90)
-    
+            if separator!=False:
+                separator=copy.deepcopy(dict_inputs[1])
+                annots=np.unique(data[z.name])
+                if z.power==2:
+                    label_str='d '
+                elif z.power==1:
+                    label_str='N '
+                cols=np.unique(data[separator.name])
+                
+                matrices=(np.pi*np.power(annots,z.power).reshape(-1,1)*np.power(cols,separator.power).reshape(1,-1)).flatten()
+                annots=annots.tolist()
+                size_of_annots=len(annots)
+                annots=np.asarray(np.meshgrid([[annot]*size_of_annots for annot in annots])[0])
+                cols=cols.tolist()
+                size_of_cols=len(cols)
+                rows=np.asarray(map(float,levy_alpha.length))
+                fig=sns.lmplot(x=x,y=y.name,data=data,row="Levy-Exponent-Alpha",hue="CRW-Exponent-Rho",col=separator.name,legend_out=False,fit_reg=False,order=2,markers=mkey,scatter=True,size=5,scatter_kws=scatter_kwargs,sharex=False)
+                targets=zip(cols*len(levy_alpha.length),fig.axes.flatten())
+                for num, (tar,ax) in enumerate(targets):
+                    col_vals=np.asarray(cols*size_of_cols)
+                    matrix_vals=matrices[col_vals==tar]
+                    annot_vals=annots[col_vals==tar]
+                    for xy in zip(annot_vals,matrix_vals):
+                        ax.annotate(label_str+'%s'%xy[0],xy=[np.log10(xy[1]),0],annotation_clip=True,color='grey',alpha=1,size=5,weight='ultralight',va='bottom',rotation=90)
+                        sns.rugplot([np.log10(1),np.log10(4.51)],height=4,ax=ax,color='navy',linestyle='dashed')
+                        ax.set_xticks(np.log10(np.unique(matrix_vals)))
+                        ax.xaxis.set_ticklabels(np.log10(np.unique(matrix_vals)),rotation=90)
+                        ax.tick_params(axis='x',labelsize=7)
+                        ax.xaxis.set_major_formatter(ticker.FormatStrFormatter('%0.1f'))
+                        ax.annotate('K=1',xy=[np.log10(1),2],annotation_clip=True,color='indigo',alpha=1,size=8,weight='light',ha='right',va='bottom',rotation=90)
+                        ax.annotate('K=4.51',xy=[np.log10(4.51),2],annotation_clip=True,color='indigo',alpha=1,size=8,weight='light',ha='right',va='bottom',rotation=90)
+                        ax.set_xlabel(x)
+                        ax.set_ylabel(y.name)
+                
+            else:
+                row_vals=np.unique(data["Communication-Range"])
+                col_vals=np.unique(data["Population-Size"])
+                matrix_vals=(np.pi*np.power(row_vals,2).reshape(-1,1)*col_vals.reshape(1,-1)).flatten()
+                row_vals=row_vals.tolist()
+                row_vals=np.meshgrid([[row]*5 for row in row_vals])[0]
+                col_vals=col_vals.tolist()
+                col_vals=col_vals*5
+                fig=sns.lmplot(x=x,y=y.name,data=data,col="Levy-Exponent-Alpha",hue="CRW-Exponent-Rho",legend_out=False,fit_reg=False,order=2,markers=mkey,scatter=True,size=5,scatter_kws=scatter_kwargs)
+                for num, ax in enumerate(fig.axes.flatten()):
+                    for xy in zip(row_vals,map(int,col_vals),matrix_vals):
+                        ax.annotate('d %s,N %s'%xy[0:2],xy=[np.log10(xy[2]),0],annotation_clip=True,color='grey',alpha=1,size=5,weight='ultralight',va='bottom',rotation=90)
+                        sns.rugplot([np.log10(1),np.log10(4.51)],height=4,ax=ax,color='navy',linestyle='dashed')
+                        ax.set_xticks(np.log10(np.unique(matrix_vals)))
+                        ax.xaxis.set_ticklabels(np.log10(np.unique(matrix_vals)),rotation=90)
+                        ax.tick_params(axis='x',labelsize=7)
+                        ax.xaxis.set_major_formatter(ticker.FormatStrFormatter('%0.1f'))
+                        ax.annotate('K=1',xy=[np.log10(1),2],annotation_clip=True,color='indigo',alpha=1,size=8,weight='light',ha='right',va='bottom',rotation=90)
+                        ax.annotate('K=4.51',xy=[np.log10(4.51),2],annotation_clip=True,color='indigo',alpha=1,size=8,weight='light',ha='right',va='bottom',rotation=90)
+        elif out=="violin" or out=="boxplot":
+            separator=copy.deepcopy(dict_inputs[1])
+            data[x]=np.round(np.log10(data[x]),2)
+            data[y.name]=np.log10(data[y.name])
+            annots=np.unique(data[z.name])
+            if z.power==2:
+                label_str='d '
+            elif z.power==1:
+                label_str='N '
+            cols=np.unique(data[separator.name]).tolist()
+            dummybox=dict()
+            fig,axs=plt.subplots(figsize=(16,8),nrows=2,ncols=int(np.ceil(np.unique(data[separator.name]).shape[0]/2.0)),gridspec_kw={"height_ratios":(1.05,1.05)})
+            targets=zip(cols,axs.flatten())
+            for num, (tar,ax) in enumerate(targets):
+                dummybox[num]=data[data[separator.name]==tar].copy()
+                if out=="violin":
+                    sns.violinplot(data=dummybox[num],x=x,y=y.name,saturation=1,linewidth=.5,hue=z.name,ax=ax,inner="box",positions=0)
+                    a=ax.get_children()
+                    sns.swarmplot(data=dummybox[num], y=y.name, x=x,ax=ax,size=1,color='w')
+                    b=ax.get_children()
+                    for child in b:
+                        if not child in a:
+                            child.set_zorder(0)
+                elif out=="boxplot":
+                    sns.boxplot(data=dummybox[num],x=x,y=y.name,saturation=1,linewidth=.5,hue=z.name,ax=ax)
+                ax.set_xlabel(separator.name+' = '+str(tar))
+
     if plttype=='consensus-plot':
         plt.xlabel(x)
-        sns.plt.subplots_adjust(top=0.9,left=0.03,right=0.99,wspace=0.06,hspace=0.25,bottom=0.1)    
+        if out=='violin' or out=='boxplot':
+            sns.plt.subplots_adjust(top=0.9,left=0.03,right=0.99,wspace=0.15,hspace=0.25,bottom=0.1)
+        else:
+            sns.plt.subplots_adjust(top=0.9,left=0.03,right=0.99,wspace=0.06,hspace=0.25,bottom=0.1)    
     else:
         sns.plt.xlabel(x.name)
         sns.plt.subplots_adjust(top=0.9,left=0.06,right=0.97,wspace=0.08,hspace=0.25,bottom=0.06)
     sns.plt.ylabel(y.name)
     sns.plt.suptitle(title)
     
-    if plttype=="heatmap":
+    if plttype=="heatmap" or out=="violin" or out=="boxplot":
         pdf.savefig( fig , dpi=900,orientation="landscape",papertype="a0")
     elif plttype=="lmplot" or out=="lmplot":
         pdf.savefig( fig.fig,dpi=900 )
@@ -438,14 +533,23 @@ def plot_design(data,x,y,out,plttype,title,arena,comm_data=False,rho=None,alpha=
         marker_legend=[]
         for v in range(len(crw_rho.length)):
             color_legend.append(mpatches.Patch(color=ckey[str(crw_rho.length[v])],label=str(crw_rho.length[v])))
-        first_legend=plt.legend(handles=color_legend,loc=1,title="CRW-Rho")
+        first_legend=plt.legend(handles=color_legend,loc=1,title=r"CRW-$\rho$")
         ax1=plt.gca().add_artist(first_legend)
         for v in range(len(levy_alpha.length)):
             marker_legend.append(mlines.Line2D([], [],marker=mkey[str(levy_alpha.length[v])],label=str(levy_alpha.length[v])))
-        plt.legend(handles=marker_legend,loc=4,title="Levy-Alpha")
+        plt.legend(handles=marker_legend,loc=2,title=r"Levy-$\alpha$")
         pdf.savefig( fig,dpi=900 )
     plt.close()
     #plt.show()
+def one_run(data,labels):
+    fig,axs=plt.subplots(figsize=(16,12),nrows=5,ncols=4,gridspec_kw={"height_ratios":(1.05,1.05)})
+    agent_in_time_shape=data[::20].size
+    for time_snap in range(20):
+        snap=pd.DataFrame(np.concatenate((data[20*(time_snap)::20].reshape(-1,1),labels*np.ones((agent_in_time_shape,len(labels)))),1),columns=["Distance From Centre",
+                          "Bias","Levy-Exponent-Alpha","CRW-Exponent-Rho","Population-Size"])
+        snap.hist(column='Distance from Centre',ax=axs.flatten()[time_snap])
+        ax.set_title('Time Snap at '+str((time_snap+1)*5000))
+        ax.set_xlabel('Distance from Centre')
 
 def subtract(a, b,tail='.dat'):
     a="".join(a.rsplit(tail))
@@ -501,8 +605,7 @@ def main():
                 save = True
             if save:
                 b=np.genfromtxt(filepath)
-                k+=one_run(b,k)
-                log.append(k)
+                one_run(b,k)
 
     log=aggregate_stats(log,arena,truncated)
     log=pd.DataFrame(log)
@@ -515,9 +618,12 @@ def main():
     log=log.assign(Degree=np.pi*np.power(log["Communication-Range"],2)*log["Population-Size"])
     log.rename(columns={"Degree":"Degree of Geometric Network"},inplace=True)                                                                                 
 
-    plot_design(log,"Degree of Geometric Network","Convergence-Time-(Discounted)","scatter","consensus-plot","Relationship between Degree of Random Geometric Network and Discounted Convergence Time",arena,comm_data=comm_data)
-    plot_design(log,"Degree of Geometric Network","Convergence-Time-(Discounted)","line","consensus-plot","Relationship between Degree of Random Geometric Network and Discounted Convergence Time",arena,comm_data=comm_data)
-    plot_design(log,"Degree of Geometric Network","Convergence-Time-(Discounted)","lmplot","consensus-plot","Relationship between Degree of Random Geometric Network and Discounted Convergence Time",arena,comm_data=comm_data)
+    #plot_design(log,"Degree of Geometric Network","Convergence-Time-(Discounted)","scatter","consensus-plot","Relationship between Degree of Random Geometric Network and Discounted Convergence Time",arena,comm_data=comm_data,separator="Population-Size")
+    #plot_design(log,"Degree of Geometric Network","Convergence-Time-(Discounted)","line","consensus-plot","Relationship between Degree of Random Geometric Network and Discounted Convergence Time",arena,comm_data=comm_data,separator="Communication-Range")
+    plot_design(log.copy(),"Degree of Geometric Network","Convergence-Time-(Discounted)","violin","consensus-plot","Relationship between Degree of Random Geometric Network and Discounted Convergence Time",arena,comm_data=comm_data,separator="Communication-Range")
+    plot_design(log.copy(),"Degree of Geometric Network","Convergence-Time-(Discounted)","boxplot","consensus-plot","Relationship between Degree of Random Geometric Network and Discounted Convergence Time",arena,comm_data=comm_data,separator="Communication-Range")
+    plot_design(log.copy(),"Degree of Geometric Network","Convergence-Time-(Discounted)","lmplot","consensus-plot","Relationship between Degree of Random Geometric Network and Discounted Convergence Time",arena,comm_data=comm_data,separator="Population-Size")
+    plot_design(log.copy(),"Degree of Geometric Network","Convergence-Time-(Discounted)","lmplot","consensus-plot","Relationship between Degree of Random Geometric Network and Discounted Convergence Time",arena,comm_data=comm_data,separator="Communication-Range")
     
     #plot_design(log,"CRW-Exponent-Rho","Levy-Exponent-Alpha","First Time of Passage (Exponential)","heatmap","Average First Passage Time (Exponential) for all Populations",arena,comm_data=comm_data)
     #plot_design(log,"CRW-Exponent-Rho","Levy-Exponent-Alpha","First Time of Passage (Weibull)","heatmap","Average First Passage Time (Weibull) for all Populations",arena,comm_data=comm_data)
