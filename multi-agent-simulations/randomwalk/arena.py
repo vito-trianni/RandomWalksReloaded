@@ -172,8 +172,12 @@ class CRWLEVYArena(pysage.Arena):
     def get_neighbour_agents( self, agent, distance_range ):
         neighbour_list = []
         for a in self.agents:
-            if (a is not agent) and ((a.position - agent.position).get_length() < distance_range):
-                neighbour_list.append(a)
+            if self.arena_type=="periodic":
+                if (a is not agent) and (self.distance_on_torus(a.position,agent.position) < distance_range):
+                    neighbour_list.append(a)
+            else:
+                if (a is not agent) and ((a.position - agent.position).get_length() < distance_range):
+                    neighbour_list.append(a)
         return neighbour_list
 
     ##########################################################################
@@ -234,8 +238,21 @@ class CRWLEVYArena(pysage.Arena):
             except:
                 first_times.append(np.nan) #list that contains all first arrival time
         return first_times
-	
-            
+    ##########################################################################
+    # return matrix of distances from central place every 5000 timesteps
+    # for one single run
+    ##########################################################################
+    def distance_from_centre_matrix(self):
+        distances=[]
+        expected_k=self.max_steps/5000
+        if self.num_steps >= self.max_steps:
+            for a in self.agents:
+                distances.append(a.distance_from_centre[:])
+        else:
+            for a in self.agents:
+                distances.append(a.distance_from_centre[:]+[np.nan]*(expected_k-len(a.distance_from_centre[:])))
+
+        return distances
     ##########################################################################
     # check if the experiment si finished
     ##########################################################################
@@ -248,8 +265,9 @@ class CRWLEVYArena(pysage.Arena):
             conv_time =  self.convergence_time - self.min_first_time
             percentage_tot_agents_with_info = (self.inventory_size*100)/self.num_agents
             total_visits_fraction=total_visits/float(self.num_agents)
-            print "run finished: ", self.has_converged, self.convergence_time, conv_time, total_visits_fraction, percentage_tot_agents_with_info, first_passage_times
-            self.results.store(self.has_converged, self.convergence_time, conv_time,total_visits_fraction, percentage_tot_agents_with_info,first_passage_times)
+            distance_from_centre=self.distance_from_centre_matrix()
+            print "run finished: ", self.has_converged, self.convergence_time, conv_time, total_visits_fraction, percentage_tot_agents_with_info, self.num_steps
+            self.results.store(self.has_converged, self.convergence_time, conv_time,total_visits_fraction, percentage_tot_agents_with_info,first_passage_times,distance_from_centre)
             return True
         return False
         

@@ -999,10 +999,15 @@ class Arena:
             a.update()
             a.position = a.position % self.dimensions # Implement the periodic boundary conditions
             #### CODE FOR A BOUNDED ARENA
-            # if a.position.x < 0: a.position.x = 0
-            # elif a.position.x > self.dimensions.x: a.position.x = self.dimensions.x 
-            # if a.position.y < 0: a.position.y = 0
-            # elif a.position.y > self.dimensions.y: a.position.x = self.dimensions.x 
+            ## if a.position.x < 0:
+            ##     a.position.x = 0
+            ## elif a.position.x > self.dimensions.x:
+            ##     a.position.x = self.dimensions.x 
+
+            ## if a.position.y < 0:
+            ##     a.position.y = 0
+            ## elif a.position.y > self.dimensions.y:
+            ##     a.position.y = self.dimensions.y
 
         self.num_steps += 1
 
@@ -1180,7 +1185,7 @@ class PysageGUI(object):
         print "Canvas size", self.pixels_per_meter*self.arena.dimensions
         self.w = tk.Canvas(self.master, width=int(self.pixels_per_meter*self.arena.dimensions.x), height=int(self.pixels_per_meter*self.arena.dimensions.y), background="#EEE")
         self.w.pack()
-        
+
         for a in self.arena.agents:
             xpos = int(a.position.x*self.pixels_per_meter)
             ypos = int(a.position.y*self.pixels_per_meter)

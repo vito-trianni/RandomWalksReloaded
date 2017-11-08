@@ -5,7 +5,7 @@ This is a script to automate visualising data in a batch.
 2. Calculate statistics by specifiying whether truncated or not. Usage: -t 0 or -t 1
 3. Specify the logistics of the variables you wish to plot, using the plot design module. Subsetting is done on the basis of feed. Currently only supports heatmaps and lmplots.
 4. Use -u 0, 1, 2 for unbounded, bounded and periodic arena-specs 
-5. Use -l to specify prefix for time limit-specs (deprecated)
+5. Use -l to specify prefix for type of data
 6. Use -p for the path where .dat files are stored (Make sure this ends with a slash)
 7. Use -c = 0 or 1 to specify whether comm_data exists 
 author: katanachan
@@ -26,10 +26,12 @@ import scipy.special as sc
 import copy
 from scipy.optimize import curve_fit
 import matplotlib.backends.backend_pdf
+import matplotlib.patches as mpatches
+import matplotlib.lines as mlines
+import matplotlib.ticker as ticker
 
 hola=[]
 pdf = matplotlib.backends.backend_pdf.PdfPages("output.pdf")
-
 class Weib(st.rv_continuous):
     def __init__(self,lower_bound=0):
         st.rv_continuous.__init__(self,a=lower_bound)
@@ -49,16 +51,18 @@ def correct_index(f):
 	else:
 		return int(f)
 
-
-
-
-def aggregate_stats(data,truncated=1):
+def aggregate_stats(data,arena,truncated=1):
     data=pd.DataFrame(data)
     #data.to_csv('checkthis.csv')
     data=np.asarray(data)
+    if arena==0:
+        bound_is=5000000
+    else:
+        bound_is=750000
     ## Bias 0, Alpha 1, Rho 2, Population 3, Convergence Bool 4, Convergence Time 5, Relative Convergence 6,
     ## PhiC 7, Ratio of Agents with Info 8, 9 onwards is first times of passage
     ind=np.lexsort((data[:,3],data[:,2], data[:,1]))
+
     data=data[ind]
     dataset=[]
     swarms=np.unique(data[:,3],return_counts=False)
@@ -96,11 +100,10 @@ def aggregate_stats(data,truncated=1):
             exponential=Exp()
             weibull=Weib()
             popt_exponential,_= curve_fit(exponential.cdf,xdata=subset,ydata=np.squeeze(F),bounds=(-1000,1000),method='trf')
-            popt_weibull,_= curve_fit(weibull.cdf,xdata=subset,ydata=np.squeeze(F),bounds=(0,[750000,10]),method='trf')
-            
+            popt_weibull,_= curve_fit(weibull.cdf,xdata=subset,ydata=np.squeeze(F),bounds=(0,[bound_is,10]),method='trf')
             #fig=plt.figure()
-            #y_exp=exponential.cdf(subset,popt_exponential[0])
-            #y_weib=weibull.cdf(subset,popt_weibull[0],popt_weibull[1])
+            y_exp=exponential.cdf(subset,popt_exponential[0])
+            y_weib=weibull.cdf(subset,popt_weibull[0],popt_weibull[1])
             #error_exp= np.power(y_exp-np.squeeze(F),2)
             #error_weib=np.power(y_weib-np.squeeze(F),2)
             #plt.plot(subset,y_exp,'g',linewidth=5,label="Exponential Distribution")
@@ -131,8 +134,14 @@ def aggregate_stats(data,truncated=1):
 
     return np.asarray(time_list)    
 
-def stats(p,label,truncated=1,comm_data=0):
+def stats(p,label,arena,truncated=1,comm_data=0):
     global hola
+    if arena==0:
+        bound_is=750000
+    elif arena==1:
+        bound_is=100000
+    elif arena==2:
+        bound_is=70000
     convergence_array = np.array(p[:,0])
     convergence_time_array = np.ma.array(p[:,1], mask=np.logical_not(convergence_array))
     censored_conv=np.sum(np.logical_not(convergence_array))
@@ -153,7 +162,7 @@ def stats(p,label,truncated=1,comm_data=0):
         percentage_tot_agents_with_info_array.mask=np.ma.nomask
         first_passage_time_array.mask=np.ma.nomask
         
-    if censored_conv==0 or truncated==0:
+    if (censored_conv==0 or truncated==0):
         head = [np.mean(convergence_array.astype(int)), np.mean(convergence_time_array.compressed()), np.mean(conv_time_array.compressed()) , np.mean(p[:,3]), np.mean(p[:,4])]+np.ravel(first_passage_time_array.compressed()).tolist()
     else:
         dataset = np.column_stack((convergence_array,
@@ -161,22 +170,21 @@ def stats(p,label,truncated=1,comm_data=0):
                                conv_time_array,
                                visits_ratio_array,
                                percentage_tot_agents_with_info_array))
-        weibull=Weib()
-        data=dataset[np.argsort(dataset[:,1])]
-        n_est=np.asarray(range(0,conv_time_array.compressed().size-censored_conv))[::-1] + float(censored_conv)
-        RT_sync=[]
-        for i in range(n_est.size):
-            if len(RT_sync)==0:
-                RT_sync.append((n_est[i]-1)/n_est[i])
-            else:
-                RT_sync.append(RT_sync[-1]*((n_est[i]-1)/n_est[i]))
-        F=1-np.asarray(RT_sync).reshape(-1,1)
         
-        if censored_conv !=0:
-            compute=np.concatenate((data[:-censored_conv,1:3],F),1)
-                
+        if censored_conv !=0:                
             try:
-                popt,_= curve_fit(weibull.cdf,xdata=compute[:,0].compressed(),ydata=np.squeeze(F),bounds=(0,[100000,10]),method='trf')
+                weibull=Weib()
+                data=dataset[np.argsort(dataset[:,1])].copy()            
+                n_est=np.asarray(range(0,conv_time_array.compressed().size-censored_conv))[::-1] + float(censored_conv)
+                RT_sync=[]
+                for i in range(n_est.size):
+                    if len(RT_sync)==0:
+                        RT_sync.append((n_est[i]-1)/n_est[i])
+                    else:
+                        RT_sync.append(RT_sync[-1]*((n_est[i]-1)/n_est[i]))
+                F=1-np.asarray(RT_sync).reshape(-1,1)                
+                compute=np.concatenate((data[:-censored_conv,1:3],F),1)
+                popt,_= curve_fit(weibull.cdf,xdata=compute[:,0].compressed(),ydata=np.squeeze(F),bounds=(0,[bound_is,10]),method='trf')
                 y_weib=weibull.cdf(compute[:,0],popt[0],popt[1])
                 Tsync2=sc.gamma(1+(1./popt[1]))*popt[0]
                 
@@ -193,7 +201,7 @@ def stats(p,label,truncated=1,comm_data=0):
                 plt.title(label2)
                 plt.xlabel("Number of time steps")
                 plt.ylabel("Synchronisation probability")
-                pdf.savefig( fig )
+                #pdf.savefig( fig )
                 #plt.show()
                 plt.close()
 
@@ -201,10 +209,12 @@ def stats(p,label,truncated=1,comm_data=0):
                 # Uncomment top line to view the fit
 
                 #print ("Censored",Tsync)
-                print ("Censored",Tsync2)
+                print ("Censored",Tsync2, popt[0],popt[1])
                 convergence_time_array.mask=np.logical_not(convergence_array)
                 print ("Uncensored", np.mean(convergence_time_array.compressed()))
-                popt,_= curve_fit(weibull.cdf,xdata=compute[:,1].compressed(),ydata=np.squeeze(F),bounds=(0,[100000,10]),method='trf')
+                data=dataset[np.argsort(dataset[:,2])].copy()                
+                compute=np.concatenate((data[:-censored_conv,1:3],F),1)
+                popt,_= curve_fit(weibull.cdf,xdata=compute[:,1].compressed(),ydata=np.squeeze(F),bounds=(0,[bound_is,10]),method='trf')
                 Tsynt2=sc.gamma(1+(1./popt[1]))*popt[0]
             except:
                 Tsync2=np.nan
@@ -218,12 +228,13 @@ def stats(p,label,truncated=1,comm_data=0):
     return head
 
 class Variable_Dictionary:
-    def __init__(self,variable_name,range_val,constant_val):
+    def __init__(self,variable_name,range_val,constant_val,power=0):
         self.name=variable_name
         self.length=range_val
         self.fixed=constant_val
         self.copied=False
         self.average=0
+        self.power=power
     def get_fixed(self):
         return self.fixed
     def get_copied(self):
@@ -251,16 +262,26 @@ def plot_design(data,x,y,out,plttype,title,arena,comm_data=False,rho=None,alpha=
 
     levy_alpha=Variable_Dictionary("Levy-Exponent-Alpha",levy_alpha_range,alpha)
     crw_rho=Variable_Dictionary("CRW-Exponent-Rho",crw_rho_range,rho)
-    pop_n=Variable_Dictionary("Population-Size",pop_n_range,size)
-    comm_rad=Variable_Dictionary("Communication-Range",comm_rad_range,comm)
-    convergence_time=Variable_Dictionary("Convergence-Time",graph_limit,None)
+    pop_n=Variable_Dictionary("Population-Size",pop_n_range,size,power=1)
+    comm_rad=Variable_Dictionary("Communication-Range",comm_rad_range,comm,power=2)
+    if plttype=='consensus-plot':
+        convergence_time=Variable_Dictionary("Convergence-Time-(Discounted)",graph_limit,None)
+    else:
+        convergence_time=Variable_Dictionary("Convergence-Time",graph_limit,None)
 
     if comm_data==True:
         dict_variables=[levy_alpha,crw_rho,pop_n,comm_rad,convergence_time]
     else:
         dict_variables=[levy_alpha,crw_rho,pop_n,convergence_time]
-    z=None
     dict_inputs=[x,y]
+    if plttype=='consensus-plot':
+        dict_variables=dict_variables[2:]
+        if separator==False:
+            dict_inputs=[y]
+        else:
+            dict_inputs=[y,separator]
+    z=None
+    
     ## Additionally add z?
     #data.to_csv('final_data.csv',header=False)
 
@@ -272,9 +293,12 @@ def plot_design(data,x,y,out,plttype,title,arena,comm_data=False,rho=None,alpha=
                 dict_variables[j].copied=True
 
     for i in range(len(dict_variables)):
-        if dict_variables[i].copied==False and dict_variables[i].fixed!=None:
+        if dict_variables[i].copied==False and dict_variables[i].fixed!=None and plttype!='consensus-plot': 
             z=copy.deepcopy(dict_variables[i])
             dict_inputs.append(z)
+        elif dict_variables[i].copied==False and plttype=='consensus-plot' and separator!=False:
+            z=copy.deepcopy(dict_variables[i])
+        
     new_flag=np.sum(np.logical_not(map(Variable_Dictionary.get_fixed,dict_variables)))
     if (not comm_data and new_flag==len(dict_variables)) or (comm_data and new_flag>=len(dict_variables)-1 and not separator):
         unused_to_average= np.where(np.logical_not(map(Variable_Dictionary.get_copied,dict_variables[0:len(dict_variables)-1])))[0]
@@ -284,18 +308,15 @@ def plot_design(data,x,y,out,plttype,title,arena,comm_data=False,rho=None,alpha=
             z=copy.deepcopy(dict_variables[unused_to_average[unused]])
             average_value*=len(list(set(np.unique(data[z.name])).intersection(map(float,z.length))))
         z.average=average_value
-    else:
+    elif plttype!='consensus-plot':
         for i in range(len(dict_inputs)):
             if dict_inputs[i].fixed != None:
-                data=data[data[dict_inputs[i].name]==dict_inputs[i].fixed]
-
-    ## Subset
-    x=copy.deepcopy(dict_inputs[0])
-    y=copy.deepcopy(dict_inputs[1])
-        
+                data=data[data[dict_inputs[i].name]==dict_inputs[i].fixed]    
 
     if plttype=="heatmap":
-
+        ## Subset
+        x=copy.deepcopy(dict_inputs[0])
+        y=copy.deepcopy(dict_inputs[1])
 	## Fill values
         if separator!=False:
             dummy=dict()
@@ -314,9 +335,6 @@ def plot_design(data,x,y,out,plttype,title,arena,comm_data=False,rho=None,alpha=
                     ## Uncomment this to verify your data
                     bin_y=len(y.length)-bin_y-1
                     
-                    # I am putting a -1 in these indices because Python2.7 seems to convert float 2.0 to int 1. Weird. Pls remove if you don't have this bug.
-                    #print bin_y[ind], bin_x[ind]
-                    #print "Y",correct_index(bin_y[ind]), "X",correct_index(bin_x[ind])
                     dummy[i][correct_index(bin_y[ind]),correct_index(bin_x[ind])]+=sep_data[out][ind]
                     ## A const value check:
                 if z.average!=0:
@@ -353,6 +371,9 @@ def plot_design(data,x,y,out,plttype,title,arena,comm_data=False,rho=None,alpha=
 
         
     elif plttype=="lmplot":
+        ## Subset
+        x=copy.deepcopy(dict_inputs[0])
+        y=copy.deepcopy(dict_inputs[1])
         scatter_kwargs={"s":100}
         data=data[~data.isnull()]
         if separator==False:
@@ -362,16 +383,173 @@ def plot_design(data,x,y,out,plttype,title,arena,comm_data=False,rho=None,alpha=
 
         plt.ylim(0,np.max(data[y.name]))
         plt.xlim(0,np.max(np.unique(data[x.name]))+np.min(np.unique(data[x.name])))
+    elif plttype=="consensus-plot":
+        y=copy.deepcopy(dict_inputs[0])
+        new_data=data.groupby(["Levy-Exponent-Alpha","CRW-Exponent-Rho"],sort=False)
+        if not (out=="lmplot" or out=="violin" or out=="boxplot"):
+            if separator==False:
+                fig,ax1=plt.subplots(nrows=1,ncols=1)
+            else:
+                fig,axs=plt.subplots(figsize=(16,8),nrows=2,ncols=int(np.ceil(np.unique(data[separator]).shape[0]/2.0)),gridspec_kw={"height_ratios":(1.05,1.05)})
+                targets=zip(np.unique(data[separator]),axs.flatten())
+        ckey=dict()
+        mkey=["^","*","o","p","s","h"]
+        mkey=dict(zip(levy_alpha.length,mkey))
+        ckey="rgbycmk"
+        ckey=dict(zip(crw_rho.length,ckey))        
+        
 
-    sns.plt.xlabel(x.name)
+        for name,group in new_data:
+            #new_data.get_group(name)
+            if separator==False:
+                if out=="scatter":
+                    group.plot(x=x,y=y.name,kind=out,color=ckey[str(name[1])],marker=mkey[str(name[0])],s=20*(name[0]**2),ax=ax1,loglog=True)
+                elif out=="line":
+                    group.plot(x=x,y=y.name,kind=out,color=ckey[str(name[1])],marker=mkey[str(name[0])],ax=ax1,loglog=True)
+                else:
+                    pass
+            else:
+                separator=copy.deepcopy(dict_inputs[1])
+                if out=="scatter":
+                    for i, (key,ax) in enumerate(targets):
+                        group[group[separator.name]==key].plot(x=x,y=y.name,kind=out,color=ckey[str(name[1])],marker=mkey[str(name[0])],s=2*(name[0]**2),ax=ax,loglog=True,legend=0)
+                        ax.set_xlabel(x)
+                        ax.set_ylabel(y.name)
+                        ax.set_title(separator.name+'='+str(key))
+                elif out=="line":
+                    for i, (key,ax) in enumerate(targets):
+                        group[group[separator.name]==key].plot(x=x,y=y.name,kind=out,color=ckey[str(name[1])],marker=mkey[str(name[0])],ms=5,linewidth=1,ax=ax,loglog=True,legend=False)
+                        ax.set_xlabel(x)
+                        ax.set_ylabel(y.name)
+                        ax.set_title(separator.name+'='+str(key))
+                else:
+                    pass
+                    
+        if out=="lmplot":
+            
+            scatter_kwargs={"s":20}
+            data[y.name]=np.log10(data[y.name])
+            data[x]=np.log10(data[x])
+            mkey=["^","*","o","p","s","h","v"]
+            
+            if separator!=False:
+                separator=copy.deepcopy(dict_inputs[1])
+                annots=np.unique(data[z.name])
+                if z.power==2:
+                    label_str='d '
+                elif z.power==1:
+                    label_str='N '
+                cols=np.unique(data[separator.name])
+                
+                matrices=(np.pi*np.power(annots,z.power).reshape(-1,1)*np.power(cols,separator.power).reshape(1,-1)).flatten()
+                annots=annots.tolist()
+                size_of_annots=len(annots)
+                annots=np.asarray(np.meshgrid([[annot]*size_of_annots for annot in annots])[0])
+                cols=cols.tolist()
+                size_of_cols=len(cols)
+                rows=np.asarray(map(float,levy_alpha.length))
+                fig=sns.lmplot(x=x,y=y.name,data=data,row="Levy-Exponent-Alpha",hue="CRW-Exponent-Rho",col=separator.name,legend_out=False,fit_reg=False,order=2,markers=mkey,scatter=True,size=5,scatter_kws=scatter_kwargs,sharex=False)
+                targets=zip(cols*len(levy_alpha.length),fig.axes.flatten())
+                for num, (tar,ax) in enumerate(targets):
+                    col_vals=np.asarray(cols*size_of_cols)
+                    matrix_vals=matrices[col_vals==tar]
+                    annot_vals=annots[col_vals==tar]
+                    for xy in zip(annot_vals,matrix_vals):
+                        ax.annotate(label_str+'%s'%xy[0],xy=[np.log10(xy[1]),0],annotation_clip=True,color='grey',alpha=1,size=5,weight='ultralight',va='bottom',rotation=90)
+                        sns.rugplot([np.log10(1),np.log10(4.51)],height=4,ax=ax,color='navy',linestyle='dashed')
+                        ax.set_xticks(np.log10(np.unique(matrix_vals)))
+                        ax.xaxis.set_ticklabels(np.log10(np.unique(matrix_vals)),rotation=90)
+                        ax.tick_params(axis='x',labelsize=7)
+                        ax.xaxis.set_major_formatter(ticker.FormatStrFormatter('%0.1f'))
+                        ax.annotate('K=1',xy=[np.log10(1),2],annotation_clip=True,color='indigo',alpha=1,size=8,weight='light',ha='right',va='bottom',rotation=90)
+                        ax.annotate('K=4.51',xy=[np.log10(4.51),2],annotation_clip=True,color='indigo',alpha=1,size=8,weight='light',ha='right',va='bottom',rotation=90)
+                        ax.set_xlabel(x)
+                        ax.set_ylabel(y.name)
+                
+            else:
+                row_vals=np.unique(data["Communication-Range"])
+                col_vals=np.unique(data["Population-Size"])
+                matrix_vals=(np.pi*np.power(row_vals,2).reshape(-1,1)*col_vals.reshape(1,-1)).flatten()
+                row_vals=row_vals.tolist()
+                row_vals=np.meshgrid([[row]*5 for row in row_vals])[0]
+                col_vals=col_vals.tolist()
+                col_vals=col_vals*5
+                fig=sns.lmplot(x=x,y=y.name,data=data,col="Levy-Exponent-Alpha",hue="CRW-Exponent-Rho",legend_out=False,fit_reg=False,order=2,markers=mkey,scatter=True,size=5,scatter_kws=scatter_kwargs)
+                for num, ax in enumerate(fig.axes.flatten()):
+                    for xy in zip(row_vals,map(int,col_vals),matrix_vals):
+                        ax.annotate('d %s,N %s'%xy[0:2],xy=[np.log10(xy[2]),0],annotation_clip=True,color='grey',alpha=1,size=5,weight='ultralight',va='bottom',rotation=90)
+                        sns.rugplot([np.log10(1),np.log10(4.51)],height=4,ax=ax,color='navy',linestyle='dashed')
+                        ax.set_xticks(np.log10(np.unique(matrix_vals)))
+                        ax.xaxis.set_ticklabels(np.log10(np.unique(matrix_vals)),rotation=90)
+                        ax.tick_params(axis='x',labelsize=7)
+                        ax.xaxis.set_major_formatter(ticker.FormatStrFormatter('%0.1f'))
+                        ax.annotate('K=1',xy=[np.log10(1),2],annotation_clip=True,color='indigo',alpha=1,size=8,weight='light',ha='right',va='bottom',rotation=90)
+                        ax.annotate('K=4.51',xy=[np.log10(4.51),2],annotation_clip=True,color='indigo',alpha=1,size=8,weight='light',ha='right',va='bottom',rotation=90)
+        elif out=="violin" or out=="boxplot":
+            separator=copy.deepcopy(dict_inputs[1])
+            data[x]=np.round(np.log10(data[x]),2)
+            data[y.name]=np.log10(data[y.name])
+            annots=np.unique(data[z.name])
+            if z.power==2:
+                label_str='d '
+            elif z.power==1:
+                label_str='N '
+            cols=np.unique(data[separator.name]).tolist()
+            dummybox=dict()
+            fig,axs=plt.subplots(figsize=(16,8),nrows=2,ncols=int(np.ceil(np.unique(data[separator.name]).shape[0]/2.0)),gridspec_kw={"height_ratios":(1.05,1.05)})
+            targets=zip(cols,axs.flatten())
+            for num, (tar,ax) in enumerate(targets):
+                dummybox[num]=data[data[separator.name]==tar].copy()
+                if out=="violin":
+                    sns.violinplot(data=dummybox[num],x=x,y=y.name,saturation=1,linewidth=.5,hue=z.name,ax=ax,inner="box",positions=0)
+                    a=ax.get_children()
+                    sns.swarmplot(data=dummybox[num], y=y.name, x=x,ax=ax,size=1,color='w')
+                    b=ax.get_children()
+                    for child in b:
+                        if not child in a:
+                            child.set_zorder(0)
+                elif out=="boxplot":
+                    sns.boxplot(data=dummybox[num],x=x,y=y.name,saturation=1,linewidth=.5,hue=z.name,ax=ax)
+                ax.set_xlabel(separator.name+' = '+str(tar))
+
+    if plttype=='consensus-plot':
+        plt.xlabel(x)
+        if out=='violin' or out=='boxplot':
+            sns.plt.subplots_adjust(top=0.9,left=0.03,right=0.99,wspace=0.15,hspace=0.25,bottom=0.1)
+        else:
+            sns.plt.subplots_adjust(top=0.9,left=0.03,right=0.99,wspace=0.06,hspace=0.25,bottom=0.1)    
+    else:
+        sns.plt.xlabel(x.name)
+        sns.plt.subplots_adjust(top=0.9,left=0.06,right=0.97,wspace=0.08,hspace=0.25,bottom=0.06)
     sns.plt.ylabel(y.name)
     sns.plt.suptitle(title)
-    sns.plt.subplots_adjust(top=0.9,left=0.06,right=0.97,wspace=0.08,hspace=0.25,bottom=0.06)
-    if plttype=="heatmap":
+    
+    if plttype=="heatmap" or out=="violin" or out=="boxplot":
         pdf.savefig( fig , dpi=900,orientation="landscape",papertype="a0")
-    elif plttype=="lmplot":
+    elif plttype=="lmplot" or out=="lmplot":
         pdf.savefig( fig.fig,dpi=900 )
+    elif plttype=="consensus-plot" and out!="lmplot":
+        color_legend=[]
+        marker_legend=[]
+        for v in range(len(crw_rho.length)):
+            color_legend.append(mpatches.Patch(color=ckey[str(crw_rho.length[v])],label=str(crw_rho.length[v])))
+        first_legend=plt.legend(handles=color_legend,loc=1,title=r"CRW-$\rho$")
+        ax1=plt.gca().add_artist(first_legend)
+        for v in range(len(levy_alpha.length)):
+            marker_legend.append(mlines.Line2D([], [],marker=mkey[str(levy_alpha.length[v])],label=str(levy_alpha.length[v])))
+        plt.legend(handles=marker_legend,loc=2,title=r"Levy-$\alpha$")
+        pdf.savefig( fig,dpi=900 )
+    plt.close()
     #plt.show()
+def one_run(data,labels):
+    fig,axs=plt.subplots(figsize=(16,12),nrows=5,ncols=4,gridspec_kw={"height_ratios":(1.05,1.05)})
+    agent_in_time_shape=data[::20].size
+    for time_snap in range(20):
+        snap=pd.DataFrame(np.concatenate((data[20*(time_snap)::20].reshape(-1,1),labels*np.ones((agent_in_time_shape,len(labels)))),1),columns=["Distance From Centre",
+                          "Bias","Levy-Exponent-Alpha","CRW-Exponent-Rho","Population-Size"])
+        snap.hist(column='Distance from Centre',ax=axs.flatten()[time_snap])
+        ax.set_title('Time Snap at '+str((time_snap+1)*5000))
+        ax.set_xlabel('Distance from Centre')
 
 def subtract(a, b,tail='.dat'):
     a="".join(a.rsplit(tail))
@@ -382,7 +560,7 @@ def main():
     ap.add_argument("-t", "--truncated", help="1 or 0")
     ap.add_argument("-u", "--arena", help="0 for unbounded, 1 for bounded and 2 for periodic")
     ap.add_argument("-p", "--path", help="enter path")
-    ap.add_argument("-l", "--timelimit", help="Enter unique filename prefix for time limit")
+    ap.add_argument("-d", "--datatype", help="Enter unique filename prefix for data stored")
     ap.add_argument("-c", "--comm", help="Enter 1 if communication range data is present")
     args=vars(ap.parse_args())
     if args.get("truncated") is None:
@@ -395,16 +573,16 @@ def main():
         comm_data=0
     else:
         comm_data=int(args["comm"])
-    if args.get("timelimit") is None:
+    if args.get("datatype") is None:
         prefix='result'
     else:
-        prefix=str(args["timelimit"])
+        prefix=str(args["datatype"])
     log=[]
     for filepath in glob.glob(os.getcwd()+'/'+path+'*.dat'):
         name_labels=[]
         k=[]
         save=False
-        if filepath.split('/')[-1].split('_')[0] == prefix:
+        if filepath.split('/')[-1].split('_')[0] == 'result':
             file_dict=subtract(filepath,os.getcwd()+'/'+path+prefix+'_').split('_')
             for i in range(len(file_dict)):
                 #name_labels.append(str([''.join(g) for _, g in groupby(file_dict[i], str.isalpha)][0]))
@@ -417,36 +595,75 @@ def main():
                 save = True
             if save:
                 b=np.genfromtxt(filepath)
-                k+=stats(b,k,truncated,comm_data)
+                k+=stats(b,k,arena,truncated,comm_data)
                 log.append(k)
-    log=aggregate_stats(log,truncated)
+        elif filepath.split('/')[-1].split('_')[0] == 'distance':
+            file_dict=subtract(filepath,os.getcwd()+'/'+path+prefix+'_').split('_')
+            for i in range(len(file_dict)):
+                k.append(float([''.join(g) for _, g in groupby(file_dict[i], str.isalpha)][1]))
+            if arena == 0 and len(k)==5:
+                save = True
+            if save:
+                b=np.genfromtxt(filepath)
+                one_run(b,k)
+
+    log=aggregate_stats(log,arena,truncated)
     log=pd.DataFrame(log)
     if comm_data==1:
         first_label="Communication-Range"
     else:
         first_label="Bias"        
-    log.columns=[first_label,"Levy-Exponent-Alpha","CRW-Exponent-Rho","Population-Size"]+["Convergence_Count","Convergence-Time","Relative Convergence Time",
-                                                                                     "Ratio of Total Visits","Percentage of Total Agents with Info","First Time of Passage (Exponential)","First Time of Passage (Weibull)"]                                                                             
+    log.columns=[first_label,"Levy-Exponent-Alpha","CRW-Exponent-Rho","Population-Size"]+["Convergence_Count","Convergence-Time","Convergence-Time-(Discounted)",
+                                                                                     "Ratio of Total Visits","Percentage of Total Agents with Info","First Time of Passage (Exponential)","First Time of Passage (Weibull)"]
+    log=log.assign(Degree=np.pi*np.power(log["Communication-Range"],2)*log["Population-Size"])
+    log.rename(columns={"Degree":"Degree of Geometric Network"},inplace=True)                                                                                 
+
+    #plot_design(log,"Degree of Geometric Network","Convergence-Time-(Discounted)","scatter","consensus-plot","Relationship between Degree of Random Geometric Network and Discounted Convergence Time",arena,comm_data=comm_data,separator="Population-Size")
+    #plot_design(log,"Degree of Geometric Network","Convergence-Time-(Discounted)","line","consensus-plot","Relationship between Degree of Random Geometric Network and Discounted Convergence Time",arena,comm_data=comm_data,separator="Communication-Range")
+    plot_design(log.copy(),"Degree of Geometric Network","Convergence-Time-(Discounted)","violin","consensus-plot","Relationship between Degree of Random Geometric Network and Discounted Convergence Time",arena,comm_data=comm_data,separator="Communication-Range")
+    plot_design(log.copy(),"Degree of Geometric Network","Convergence-Time-(Discounted)","boxplot","consensus-plot","Relationship between Degree of Random Geometric Network and Discounted Convergence Time",arena,comm_data=comm_data,separator="Communication-Range")
+    plot_design(log.copy(),"Degree of Geometric Network","Convergence-Time-(Discounted)","lmplot","consensus-plot","Relationship between Degree of Random Geometric Network and Discounted Convergence Time",arena,comm_data=comm_data,separator="Population-Size")
+    plot_design(log.copy(),"Degree of Geometric Network","Convergence-Time-(Discounted)","lmplot","consensus-plot","Relationship between Degree of Random Geometric Network and Discounted Convergence Time",arena,comm_data=comm_data,separator="Communication-Range")
+    
     #plot_design(log,"CRW-Exponent-Rho","Levy-Exponent-Alpha","First Time of Passage (Exponential)","heatmap","Average First Passage Time (Exponential) for all Populations",arena,comm_data=comm_data)
     #plot_design(log,"CRW-Exponent-Rho","Levy-Exponent-Alpha","First Time of Passage (Weibull)","heatmap","Average First Passage Time (Weibull) for all Populations",arena,comm_data=comm_data)
     
     #plot_design(log,"CRW-Exponent-Rho","Levy-Exponent-Alpha","Ratio of Total Visits","heatmap","PhiC ratio of Visited to Total Agents",arena,comm_data=comm_data)
-    plot_design(log,"Population-Size","Convergence-Time","CRW-Exponent-Rho","lmplot","Convergence Times for Alpha=1.4",arena,comm_data=comm_data,alpha=1.4,separator="Communication-Range")
-    plot_design(log,"Communication-Range","Convergence-Time","CRW-Exponent-Rho","lmplot","Convergence Times for Alpha=1.4",arena,comm_data=comm_data,alpha=1.4,separator="Population-Size")
-    plot_design(log,"Population-Size","Convergence-Time","Levy-Exponent-Alpha","lmplot","Convergence Times for Rho=0.75",arena,comm_data=comm_data,rho=0.75,separator="Communication-Range")
-    plot_design(log,"Communication-Range","Convergence-Time","Levy-Exponent-Alpha","lmplot","Convergence Times for Rho=0.75",arena,comm_data=comm_data,rho=0.75,separator="Population-Size")
+    #plot_design(log,"Population-Size","Convergence-Time","CRW-Exponent-Rho","lmplot","Convergence Times for Alpha=1.4",arena,comm_data=comm_data,alpha=1.4)
+    #plot_design(log,"Population-Size","Convergence-Time","CRW-Exponent-Rho","lmplot","Convergence Times for Alpha=1.4",arena,comm_data=comm_data,alpha=1.4,separator="Communication-Range")
+    #plot_design(log,"Communication-Range","Convergence-Time","CRW-Exponent-Rho","lmplot","Convergence Times for Alpha=1.4",arena,comm_data=comm_data,alpha=1.4,separator="Population-Size")
+    #plot_design(log,"Population-Size","Convergence-Time-(Discounted)","CRW-Exponent-Rho","lmplot","Convergence Times (Discounted) for Alpha=1.4",arena,comm_data=comm_data,alpha=1.4,separator="Communication-Range")
+    #plot_design(log,"Communication-Range","Convergence-Time-(Discounted)","CRW-Exponent-Rho","lmplot","Convergence Times (Discounted) for Alpha=1.4",arena,comm_data=comm_data,alpha=1.4,separator="Population-Size")
+    #plot_design(log,"Population-Size","Convergence-Time","Levy-Exponent-Alpha","lmplot","Convergence Times for Rho=0.75",arena,comm_data=comm_data,rho=0.75)
+    #plot_design(log,"Population-Size","Convergence-Time","Levy-Exponent-Alpha","lmplot","Convergence Times for Rho=0.75",arena,comm_data=comm_data,rho=0.75,separator="Communication-Range")
+    #plot_design(log,"Communication-Range","Convergence-Time","Levy-Exponent-Alpha","lmplot","Convergence Times for Rho=0.75",arena,comm_data=comm_data,rho=0.75,separator="Population-Size")
+    #plot_design(log,"Population-Size","Convergence-Time-(Discounted)","Levy-Exponent-Alpha","lmplot","Convergence Times (Discounted) for Rho=0.75",arena,comm_data=comm_data,rho=0.75,separator="Communication-Range")
+    #plot_design(log,"Communication-Range","Convergence-Time-(Discounted)","Levy-Exponent-Alpha","lmplot","Convergence Times (Discounted) for Rho=0.75",arena,comm_data=comm_data,rho=0.75,separator="Population-Size")
     
-    plot_design(log,"CRW-Exponent-Rho","Levy-Exponent-Alpha","Convergence-Time","heatmap","Total Convergence Time for Range 0.0125",arena,comm_data=comm_data,comm=.0125,separator="Population-Size")
-    plot_design(log,"CRW-Exponent-Rho","Levy-Exponent-Alpha","Convergence-Time","heatmap","Total Convergence Time for Range 0.0250",arena,comm_data=comm_data,comm=.025,separator="Population-Size")    
-    plot_design(log,"CRW-Exponent-Rho","Levy-Exponent-Alpha","Convergence-Time","heatmap","Total Convergence Time for Range 0.05",arena,comm_data=comm_data,comm=.05,separator="Population-Size")    
-    plot_design(log,"CRW-Exponent-Rho","Levy-Exponent-Alpha","Convergence-Time","heatmap","Total Convergence Time for Range 0.1",arena,comm_data=comm_data,comm=.1,separator="Population-Size")    
-    plot_design(log,"CRW-Exponent-Rho","Levy-Exponent-Alpha","Convergence-Time","heatmap","Total Convergence Time for Range 0.2",arena,comm_data=comm_data,comm=.2,separator="Population-Size")
-    
-    plot_design(log,"CRW-Exponent-Rho","Levy-Exponent-Alpha","Convergence-Time","heatmap","Total Convergence Time for Population 10",arena,comm_data=comm_data,size=10,separator="Communication-Range")    
-    plot_design(log,"CRW-Exponent-Rho","Levy-Exponent-Alpha","Convergence-Time","heatmap","Total Convergence Time for Population 20",arena,comm_data=comm_data,size=20,separator="Communication-Range")
-    plot_design(log,"CRW-Exponent-Rho","Levy-Exponent-Alpha","Convergence-Time","heatmap","Total Convergence Time for Population 50",arena,comm_data=comm_data,size=50,separator="Communication-Range")
-    plot_design(log,"CRW-Exponent-Rho","Levy-Exponent-Alpha","Convergence-Time","heatmap","Total Convergence Time for Population 100",arena,comm_data=comm_data,size=100,separator="Communication-Range")
-    plot_design(log,"CRW-Exponent-Rho","Levy-Exponent-Alpha","Convergence-Time","heatmap","Total Convergence Time for Population 200",arena,comm_data=comm_data,size=200,separator="Communication-Range")
+    #plot_design(log,"CRW-Exponent-Rho","Levy-Exponent-Alpha","Convergence-Time","heatmap","Total Convergence Time for Range 0.0125",arena,comm_data=comm_data,comm=.0125,separator="Population-Size")
+    #plot_design(log,"CRW-Exponent-Rho","Levy-Exponent-Alpha","Convergence-Time","heatmap","Total Convergence Time for Range 0.0250",arena,comm_data=comm_data,comm=.025,separator="Population-Size")    
+    #plot_design(log,"CRW-Exponent-Rho","Levy-Exponent-Alpha","Convergence-Time","heatmap","Total Convergence Time for Range 0.05",arena,comm_data=comm_data,comm=.05,separator="Population-Size")    
+    #plot_design(log,"CRW-Exponent-Rho","Levy-Exponent-Alpha","Convergence-Time","heatmap","Total Convergence Time for Range 0.1",arena,comm_data=comm_data,comm=.1,separator="Population-Size")    
+    #plot_design(log,"CRW-Exponent-Rho","Levy-Exponent-Alpha","Convergence-Time","heatmap","Total Convergence Time for Range 0.2",arena,comm_data=comm_data,comm=.2,separator="Population-Size")
+    #plot_design(log,"CRW-Exponent-Rho","Levy-Exponent-Alpha","Convergence-Time-(Discounted)","heatmap","Total Convergence Time (Discounted) for Range 0.0125",arena,comm_data=comm_data,comm=.0125,separator="Population-Size")
+    #plot_design(log,"CRW-Exponent-Rho","Levy-Exponent-Alpha","Convergence-Time-(Discounted)","heatmap","Total Convergence Time (Discounted) for Range 0.0250",arena,comm_data=comm_data,comm=.025,separator="Population-Size")    
+    #plot_design(log,"CRW-Exponent-Rho","Levy-Exponent-Alpha","Convergence-Time-(Discounted)","heatmap","Total Convergence Time (Discounted) for Range 0.05",arena,comm_data=comm_data,comm=.05,separator="Population-Size")    
+    #plot_design(log,"CRW-Exponent-Rho","Levy-Exponent-Alpha","Convergence-Time-(Discounted)","heatmap","Total Convergence Time (Discounted) for Range 0.1",arena,comm_data=comm_data,comm=.1,separator="Population-Size")    
+    #plot_design(log,"CRW-Exponent-Rho","Levy-Exponent-Alpha","Convergence-Time-(Discounted)","heatmap","Total Convergence Time (Discounted) for Range 0.2",arena,comm_data=comm_data,comm=.2,separator="Population-Size")
+
+    #plot_design(log,"CRW-Exponent-Rho","Levy-Exponent-Alpha","Convergence-Time","heatmap","Total Convergence Time for Population 10",arena,comm_data=comm_data,size=10)
+    #plot_design(log,"CRW-Exponent-Rho","Levy-Exponent-Alpha","Convergence-Time","heatmap","Total Convergence Time for Population 10",arena,comm_data=comm_data,size=10,separator="Communication-Range")    
+    #plot_design(log,"CRW-Exponent-Rho","Levy-Exponent-Alpha","Convergence-Time","heatmap","Total Convergence Time for Population 20",arena,comm_data=comm_data,size=20,separator="Communication-Range")
+    #plot_design(log,"CRW-Exponent-Rho","Levy-Exponent-Alpha","Convergence-Time","heatmap","Total Convergence Time for Population 50",arena,comm_data=comm_data,size=50,separator="Communication-Range")
+    #plot_design(log,"CRW-Exponent-Rho","Levy-Exponent-Alpha","Convergence-Time","heatmap","Total Convergence Time for Population 100",arena,comm_data=comm_data,size=100)
+    #plot_design(log,"CRW-Exponent-Rho","Levy-Exponent-Alpha","Convergence-Time","heatmap","Total Convergence Time for Population 100",arena,comm_data=comm_data,size=100,separator="Communication-Range")
+    #plot_design(log,"CRW-Exponent-Rho","Levy-Exponent-Alpha","Convergence-Time","heatmap","Total Convergence Time for Population 200",arena,comm_data=comm_data,size=200,separator="Communication-Range")
+    #plot_design(log,"CRW-Exponent-Rho","Levy-Exponent-Alpha","Convergence-Time-(Discounted)","heatmap","Total Convergence Time (Discounted) for Population 10",arena,comm_data=comm_data,size=10,separator="Communication-Range")    
+    #plot_design(log,"CRW-Exponent-Rho","Levy-Exponent-Alpha","Convergence-Time-(Discounted)","heatmap","Total Convergence Time (Discounted) for Population 20",arena,comm_data=comm_data,size=20,separator="Communication-Range")
+    #plot_design(log,"CRW-Exponent-Rho","Levy-Exponent-Alpha","Convergence-Time-(Discounted)","heatmap","Total Convergence Time (Discounted) for Population 50",arena,comm_data=comm_data,size=50,separator="Communication-Range")
+    #plot_design(log,"CRW-Exponent-Rho","Levy-Exponent-Alpha","Convergence-Time","heatmap","Total Convergence Time for Population 100",arena,comm_data=comm_data,size=100)
+    #plot_design(log,"CRW-Exponent-Rho","Levy-Exponent-Alpha","Convergence-Time-(Discounted)","heatmap","Total Convergence Time (Discounted) for Population 100",arena,comm_data=comm_data,size=100,separator="Communication-Range")
+    #plot_design(log,"CRW-Exponent-Rho","Levy-Exponent-Alpha","Convergence-Time-(Discounted)","heatmap","Total Convergence Time (Discounted) for Population 200",arena,comm_data=comm_data,size=200,separator="Communication-Range")
     pdf.close()
 
 
