@@ -541,15 +541,24 @@ def plot_design(data,x,y,out,plttype,title,arena,comm_data=False,rho=None,alpha=
         pdf.savefig( fig,dpi=900 )
     plt.close()
     #plt.show()
+def to_percent(y,position):
+    s=str(100 * y)
+    return s + '%'
 def one_run(data,labels):
-    fig,axs=plt.subplots(figsize=(16,12),nrows=5,ncols=4,gridspec_kw={"height_ratios":(1.05,1.05)})
+    fig,axs=plt.subplots(figsize=(20,16),nrows=5,ncols=4)
+    sns.plt.suptitle(r"Levy-$\alpha$ %s CRW-$\rho$ %s Population Size %s Target-Distance %s Bias Value %s" %(str(labels[2]),str(labels[3]),str(int(labels[4])),str(labels[0]),str(labels[1])))
     agent_in_time_shape=data[::20].size
+    formatter=ticker.FuncFormatter(to_percent)
     for time_snap in range(20):
-        snap=pd.DataFrame(np.concatenate((data[20*(time_snap)::20].reshape(-1,1),labels*np.ones((agent_in_time_shape,len(labels)))),1),columns=["Distance From Centre",
-                          "Bias","Levy-Exponent-Alpha","CRW-Exponent-Rho","Population-Size"])
-        snap.hist(column='Distance from Centre',ax=axs.flatten()[time_snap])
-        ax.set_title('Time Snap at '+str((time_snap+1)*5000))
-        ax.set_xlabel('Distance from Centre')
+        snap=pd.DataFrame(np.concatenate((data[time_snap::20].reshape(-1,1),np.ones((agent_in_time_shape,len(labels)))*np.asarray(labels).T),1),columns=["Distance From Centre",
+                          "Target-Distance","Bias","Levy-Exponent-Alpha","CRW-Exponent-Rho","Population-Size"]).copy()
+        snap=snap[~snap['Distance From Centre'].isnull()]
+        snap.plot(kind='hist',y='Distance From Centre',ax=axs.flatten()[time_snap],bins=20,weights=np.ones_like(snap['Distance From Centre'])*1.0 / len(snap),stacked=False,alpha=.8)
+        axs.flatten()[time_snap].yaxis.set_major_formatter(formatter)
+        axs.flatten()[time_snap].set_title('Time Snap at '+str((time_snap+1)*5000))
+    sns.plt.subplots_adjust(top=0.92,left=0.04,right=0.98,wspace=0.4,hspace=0.4,bottom=0.03)
+    pdf.savefig(fig,dpi=900)
+    plt.close()
 
 def subtract(a, b,tail='.dat'):
     a="".join(a.rsplit(tail))
@@ -582,7 +591,7 @@ def main():
         name_labels=[]
         k=[]
         save=False
-        if filepath.split('/')[-1].split('_')[0] == 'result':
+        if filepath.split('/')[-1].split('_')[0] == 'result' and prefix== 'result':
             file_dict=subtract(filepath,os.getcwd()+'/'+path+prefix+'_').split('_')
             for i in range(len(file_dict)):
                 #name_labels.append(str([''.join(g) for _, g in groupby(file_dict[i], str.isalpha)][0]))
@@ -597,8 +606,9 @@ def main():
                 b=np.genfromtxt(filepath)
                 k+=stats(b,k,arena,truncated,comm_data)
                 log.append(k)
-        elif filepath.split('/')[-1].split('_')[0] == 'distance':
+        elif filepath.split('/')[-1].split('_')[0] == 'tocentre' and prefix =='tocentre':
             file_dict=subtract(filepath,os.getcwd()+'/'+path+prefix+'_').split('_')
+            print file_dict
             for i in range(len(file_dict)):
                 k.append(float([''.join(g) for _, g in groupby(file_dict[i], str.isalpha)][1]))
             if arena == 0 and len(k)==5:
@@ -607,63 +617,63 @@ def main():
                 b=np.genfromtxt(filepath)
                 one_run(b,k)
 
-    log=aggregate_stats(log,arena,truncated)
-    log=pd.DataFrame(log)
-    if comm_data==1:
-        first_label="Communication-Range"
-    else:
-        first_label="Bias"        
-    log.columns=[first_label,"Levy-Exponent-Alpha","CRW-Exponent-Rho","Population-Size"]+["Convergence_Count","Convergence-Time","Convergence-Time-(Discounted)",
-                                                                                     "Ratio of Total Visits","Percentage of Total Agents with Info","First Time of Passage (Exponential)","First Time of Passage (Weibull)"]
-    log=log.assign(Degree=np.pi*np.power(log["Communication-Range"],2)*log["Population-Size"])
-    log.rename(columns={"Degree":"Degree of Geometric Network"},inplace=True)                                                                                 
+    # log=aggregate_stats(log,arena,truncated)
+    # log=pd.DataFrame(log)
+    # if comm_data==1:
+    #     first_label="Communication-Range"
+    # else:
+    #     first_label="Bias"        
+    # log.columns=[first_label,"Levy-Exponent-Alpha","CRW-Exponent-Rho","Population-Size"]+["Convergence_Count","Convergence-Time","Convergence-Time-(Discounted)",
+    #                                                                                  "Ratio of Total Visits","Percentage of Total Agents with Info","First Time of Passage (Exponential)","First Time of Passage (Weibull)"]
+    # log=log.assign(Degree=np.pi*np.power(log["Communication-Range"],2)*log["Population-Size"])
+    # log.rename(columns={"Degree":"Degree of Geometric Network"},inplace=True)                                                                                 
 
-    #plot_design(log,"Degree of Geometric Network","Convergence-Time-(Discounted)","scatter","consensus-plot","Relationship between Degree of Random Geometric Network and Discounted Convergence Time",arena,comm_data=comm_data,separator="Population-Size")
-    #plot_design(log,"Degree of Geometric Network","Convergence-Time-(Discounted)","line","consensus-plot","Relationship between Degree of Random Geometric Network and Discounted Convergence Time",arena,comm_data=comm_data,separator="Communication-Range")
-    plot_design(log.copy(),"Degree of Geometric Network","Convergence-Time-(Discounted)","violin","consensus-plot","Relationship between Degree of Random Geometric Network and Discounted Convergence Time",arena,comm_data=comm_data,separator="Communication-Range")
-    plot_design(log.copy(),"Degree of Geometric Network","Convergence-Time-(Discounted)","boxplot","consensus-plot","Relationship between Degree of Random Geometric Network and Discounted Convergence Time",arena,comm_data=comm_data,separator="Communication-Range")
-    plot_design(log.copy(),"Degree of Geometric Network","Convergence-Time-(Discounted)","lmplot","consensus-plot","Relationship between Degree of Random Geometric Network and Discounted Convergence Time",arena,comm_data=comm_data,separator="Population-Size")
-    plot_design(log.copy(),"Degree of Geometric Network","Convergence-Time-(Discounted)","lmplot","consensus-plot","Relationship between Degree of Random Geometric Network and Discounted Convergence Time",arena,comm_data=comm_data,separator="Communication-Range")
+    # #plot_design(log,"Degree of Geometric Network","Convergence-Time-(Discounted)","scatter","consensus-plot","Relationship between Degree of Random Geometric Network and Discounted Convergence Time",arena,comm_data=comm_data,separator="Population-Size")
+    # #plot_design(log,"Degree of Geometric Network","Convergence-Time-(Discounted)","line","consensus-plot","Relationship between Degree of Random Geometric Network and Discounted Convergence Time",arena,comm_data=comm_data,separator="Communication-Range")
+    # plot_design(log.copy(),"Degree of Geometric Network","Convergence-Time-(Discounted)","violin","consensus-plot","Relationship between Degree of Random Geometric Network and Discounted Convergence Time",arena,comm_data=comm_data,separator="Communication-Range")
+    # plot_design(log.copy(),"Degree of Geometric Network","Convergence-Time-(Discounted)","boxplot","consensus-plot","Relationship between Degree of Random Geometric Network and Discounted Convergence Time",arena,comm_data=comm_data,separator="Communication-Range")
+    # plot_design(log.copy(),"Degree of Geometric Network","Convergence-Time-(Discounted)","lmplot","consensus-plot","Relationship between Degree of Random Geometric Network and Discounted Convergence Time",arena,comm_data=comm_data,separator="Population-Size")
+    # plot_design(log.copy(),"Degree of Geometric Network","Convergence-Time-(Discounted)","lmplot","consensus-plot","Relationship between Degree of Random Geometric Network and Discounted Convergence Time",arena,comm_data=comm_data,separator="Communication-Range")
     
-    #plot_design(log,"CRW-Exponent-Rho","Levy-Exponent-Alpha","First Time of Passage (Exponential)","heatmap","Average First Passage Time (Exponential) for all Populations",arena,comm_data=comm_data)
-    #plot_design(log,"CRW-Exponent-Rho","Levy-Exponent-Alpha","First Time of Passage (Weibull)","heatmap","Average First Passage Time (Weibull) for all Populations",arena,comm_data=comm_data)
+    # #plot_design(log,"CRW-Exponent-Rho","Levy-Exponent-Alpha","First Time of Passage (Exponential)","heatmap","Average First Passage Time (Exponential) for all Populations",arena,comm_data=comm_data)
+    # #plot_design(log,"CRW-Exponent-Rho","Levy-Exponent-Alpha","First Time of Passage (Weibull)","heatmap","Average First Passage Time (Weibull) for all Populations",arena,comm_data=comm_data)
     
-    #plot_design(log,"CRW-Exponent-Rho","Levy-Exponent-Alpha","Ratio of Total Visits","heatmap","PhiC ratio of Visited to Total Agents",arena,comm_data=comm_data)
-    #plot_design(log,"Population-Size","Convergence-Time","CRW-Exponent-Rho","lmplot","Convergence Times for Alpha=1.4",arena,comm_data=comm_data,alpha=1.4)
-    #plot_design(log,"Population-Size","Convergence-Time","CRW-Exponent-Rho","lmplot","Convergence Times for Alpha=1.4",arena,comm_data=comm_data,alpha=1.4,separator="Communication-Range")
-    #plot_design(log,"Communication-Range","Convergence-Time","CRW-Exponent-Rho","lmplot","Convergence Times for Alpha=1.4",arena,comm_data=comm_data,alpha=1.4,separator="Population-Size")
-    #plot_design(log,"Population-Size","Convergence-Time-(Discounted)","CRW-Exponent-Rho","lmplot","Convergence Times (Discounted) for Alpha=1.4",arena,comm_data=comm_data,alpha=1.4,separator="Communication-Range")
-    #plot_design(log,"Communication-Range","Convergence-Time-(Discounted)","CRW-Exponent-Rho","lmplot","Convergence Times (Discounted) for Alpha=1.4",arena,comm_data=comm_data,alpha=1.4,separator="Population-Size")
-    #plot_design(log,"Population-Size","Convergence-Time","Levy-Exponent-Alpha","lmplot","Convergence Times for Rho=0.75",arena,comm_data=comm_data,rho=0.75)
-    #plot_design(log,"Population-Size","Convergence-Time","Levy-Exponent-Alpha","lmplot","Convergence Times for Rho=0.75",arena,comm_data=comm_data,rho=0.75,separator="Communication-Range")
-    #plot_design(log,"Communication-Range","Convergence-Time","Levy-Exponent-Alpha","lmplot","Convergence Times for Rho=0.75",arena,comm_data=comm_data,rho=0.75,separator="Population-Size")
-    #plot_design(log,"Population-Size","Convergence-Time-(Discounted)","Levy-Exponent-Alpha","lmplot","Convergence Times (Discounted) for Rho=0.75",arena,comm_data=comm_data,rho=0.75,separator="Communication-Range")
-    #plot_design(log,"Communication-Range","Convergence-Time-(Discounted)","Levy-Exponent-Alpha","lmplot","Convergence Times (Discounted) for Rho=0.75",arena,comm_data=comm_data,rho=0.75,separator="Population-Size")
+    # #plot_design(log,"CRW-Exponent-Rho","Levy-Exponent-Alpha","Ratio of Total Visits","heatmap","PhiC ratio of Visited to Total Agents",arena,comm_data=comm_data)
+    # #plot_design(log,"Population-Size","Convergence-Time","CRW-Exponent-Rho","lmplot","Convergence Times for Alpha=1.4",arena,comm_data=comm_data,alpha=1.4)
+    # #plot_design(log,"Population-Size","Convergence-Time","CRW-Exponent-Rho","lmplot","Convergence Times for Alpha=1.4",arena,comm_data=comm_data,alpha=1.4,separator="Communication-Range")
+    # #plot_design(log,"Communication-Range","Convergence-Time","CRW-Exponent-Rho","lmplot","Convergence Times for Alpha=1.4",arena,comm_data=comm_data,alpha=1.4,separator="Population-Size")
+    # #plot_design(log,"Population-Size","Convergence-Time-(Discounted)","CRW-Exponent-Rho","lmplot","Convergence Times (Discounted) for Alpha=1.4",arena,comm_data=comm_data,alpha=1.4,separator="Communication-Range")
+    # #plot_design(log,"Communication-Range","Convergence-Time-(Discounted)","CRW-Exponent-Rho","lmplot","Convergence Times (Discounted) for Alpha=1.4",arena,comm_data=comm_data,alpha=1.4,separator="Population-Size")
+    # #plot_design(log,"Population-Size","Convergence-Time","Levy-Exponent-Alpha","lmplot","Convergence Times for Rho=0.75",arena,comm_data=comm_data,rho=0.75)
+    # #plot_design(log,"Population-Size","Convergence-Time","Levy-Exponent-Alpha","lmplot","Convergence Times for Rho=0.75",arena,comm_data=comm_data,rho=0.75,separator="Communication-Range")
+    # #plot_design(log,"Communication-Range","Convergence-Time","Levy-Exponent-Alpha","lmplot","Convergence Times for Rho=0.75",arena,comm_data=comm_data,rho=0.75,separator="Population-Size")
+    # #plot_design(log,"Population-Size","Convergence-Time-(Discounted)","Levy-Exponent-Alpha","lmplot","Convergence Times (Discounted) for Rho=0.75",arena,comm_data=comm_data,rho=0.75,separator="Communication-Range")
+    # #plot_design(log,"Communication-Range","Convergence-Time-(Discounted)","Levy-Exponent-Alpha","lmplot","Convergence Times (Discounted) for Rho=0.75",arena,comm_data=comm_data,rho=0.75,separator="Population-Size")
     
-    #plot_design(log,"CRW-Exponent-Rho","Levy-Exponent-Alpha","Convergence-Time","heatmap","Total Convergence Time for Range 0.0125",arena,comm_data=comm_data,comm=.0125,separator="Population-Size")
-    #plot_design(log,"CRW-Exponent-Rho","Levy-Exponent-Alpha","Convergence-Time","heatmap","Total Convergence Time for Range 0.0250",arena,comm_data=comm_data,comm=.025,separator="Population-Size")    
-    #plot_design(log,"CRW-Exponent-Rho","Levy-Exponent-Alpha","Convergence-Time","heatmap","Total Convergence Time for Range 0.05",arena,comm_data=comm_data,comm=.05,separator="Population-Size")    
-    #plot_design(log,"CRW-Exponent-Rho","Levy-Exponent-Alpha","Convergence-Time","heatmap","Total Convergence Time for Range 0.1",arena,comm_data=comm_data,comm=.1,separator="Population-Size")    
-    #plot_design(log,"CRW-Exponent-Rho","Levy-Exponent-Alpha","Convergence-Time","heatmap","Total Convergence Time for Range 0.2",arena,comm_data=comm_data,comm=.2,separator="Population-Size")
-    #plot_design(log,"CRW-Exponent-Rho","Levy-Exponent-Alpha","Convergence-Time-(Discounted)","heatmap","Total Convergence Time (Discounted) for Range 0.0125",arena,comm_data=comm_data,comm=.0125,separator="Population-Size")
-    #plot_design(log,"CRW-Exponent-Rho","Levy-Exponent-Alpha","Convergence-Time-(Discounted)","heatmap","Total Convergence Time (Discounted) for Range 0.0250",arena,comm_data=comm_data,comm=.025,separator="Population-Size")    
-    #plot_design(log,"CRW-Exponent-Rho","Levy-Exponent-Alpha","Convergence-Time-(Discounted)","heatmap","Total Convergence Time (Discounted) for Range 0.05",arena,comm_data=comm_data,comm=.05,separator="Population-Size")    
-    #plot_design(log,"CRW-Exponent-Rho","Levy-Exponent-Alpha","Convergence-Time-(Discounted)","heatmap","Total Convergence Time (Discounted) for Range 0.1",arena,comm_data=comm_data,comm=.1,separator="Population-Size")    
-    #plot_design(log,"CRW-Exponent-Rho","Levy-Exponent-Alpha","Convergence-Time-(Discounted)","heatmap","Total Convergence Time (Discounted) for Range 0.2",arena,comm_data=comm_data,comm=.2,separator="Population-Size")
+    # #plot_design(log,"CRW-Exponent-Rho","Levy-Exponent-Alpha","Convergence-Time","heatmap","Total Convergence Time for Range 0.0125",arena,comm_data=comm_data,comm=.0125,separator="Population-Size")
+    # #plot_design(log,"CRW-Exponent-Rho","Levy-Exponent-Alpha","Convergence-Time","heatmap","Total Convergence Time for Range 0.0250",arena,comm_data=comm_data,comm=.025,separator="Population-Size")    
+    # #plot_design(log,"CRW-Exponent-Rho","Levy-Exponent-Alpha","Convergence-Time","heatmap","Total Convergence Time for Range 0.05",arena,comm_data=comm_data,comm=.05,separator="Population-Size")    
+    # #plot_design(log,"CRW-Exponent-Rho","Levy-Exponent-Alpha","Convergence-Time","heatmap","Total Convergence Time for Range 0.1",arena,comm_data=comm_data,comm=.1,separator="Population-Size")    
+    # #plot_design(log,"CRW-Exponent-Rho","Levy-Exponent-Alpha","Convergence-Time","heatmap","Total Convergence Time for Range 0.2",arena,comm_data=comm_data,comm=.2,separator="Population-Size")
+    # #plot_design(log,"CRW-Exponent-Rho","Levy-Exponent-Alpha","Convergence-Time-(Discounted)","heatmap","Total Convergence Time (Discounted) for Range 0.0125",arena,comm_data=comm_data,comm=.0125,separator="Population-Size")
+    # #plot_design(log,"CRW-Exponent-Rho","Levy-Exponent-Alpha","Convergence-Time-(Discounted)","heatmap","Total Convergence Time (Discounted) for Range 0.0250",arena,comm_data=comm_data,comm=.025,separator="Population-Size")    
+    # #plot_design(log,"CRW-Exponent-Rho","Levy-Exponent-Alpha","Convergence-Time-(Discounted)","heatmap","Total Convergence Time (Discounted) for Range 0.05",arena,comm_data=comm_data,comm=.05,separator="Population-Size")    
+    # #plot_design(log,"CRW-Exponent-Rho","Levy-Exponent-Alpha","Convergence-Time-(Discounted)","heatmap","Total Convergence Time (Discounted) for Range 0.1",arena,comm_data=comm_data,comm=.1,separator="Population-Size")    
+    # #plot_design(log,"CRW-Exponent-Rho","Levy-Exponent-Alpha","Convergence-Time-(Discounted)","heatmap","Total Convergence Time (Discounted) for Range 0.2",arena,comm_data=comm_data,comm=.2,separator="Population-Size")
 
-    #plot_design(log,"CRW-Exponent-Rho","Levy-Exponent-Alpha","Convergence-Time","heatmap","Total Convergence Time for Population 10",arena,comm_data=comm_data,size=10)
-    #plot_design(log,"CRW-Exponent-Rho","Levy-Exponent-Alpha","Convergence-Time","heatmap","Total Convergence Time for Population 10",arena,comm_data=comm_data,size=10,separator="Communication-Range")    
-    #plot_design(log,"CRW-Exponent-Rho","Levy-Exponent-Alpha","Convergence-Time","heatmap","Total Convergence Time for Population 20",arena,comm_data=comm_data,size=20,separator="Communication-Range")
-    #plot_design(log,"CRW-Exponent-Rho","Levy-Exponent-Alpha","Convergence-Time","heatmap","Total Convergence Time for Population 50",arena,comm_data=comm_data,size=50,separator="Communication-Range")
-    #plot_design(log,"CRW-Exponent-Rho","Levy-Exponent-Alpha","Convergence-Time","heatmap","Total Convergence Time for Population 100",arena,comm_data=comm_data,size=100)
-    #plot_design(log,"CRW-Exponent-Rho","Levy-Exponent-Alpha","Convergence-Time","heatmap","Total Convergence Time for Population 100",arena,comm_data=comm_data,size=100,separator="Communication-Range")
-    #plot_design(log,"CRW-Exponent-Rho","Levy-Exponent-Alpha","Convergence-Time","heatmap","Total Convergence Time for Population 200",arena,comm_data=comm_data,size=200,separator="Communication-Range")
-    #plot_design(log,"CRW-Exponent-Rho","Levy-Exponent-Alpha","Convergence-Time-(Discounted)","heatmap","Total Convergence Time (Discounted) for Population 10",arena,comm_data=comm_data,size=10,separator="Communication-Range")    
-    #plot_design(log,"CRW-Exponent-Rho","Levy-Exponent-Alpha","Convergence-Time-(Discounted)","heatmap","Total Convergence Time (Discounted) for Population 20",arena,comm_data=comm_data,size=20,separator="Communication-Range")
-    #plot_design(log,"CRW-Exponent-Rho","Levy-Exponent-Alpha","Convergence-Time-(Discounted)","heatmap","Total Convergence Time (Discounted) for Population 50",arena,comm_data=comm_data,size=50,separator="Communication-Range")
-    #plot_design(log,"CRW-Exponent-Rho","Levy-Exponent-Alpha","Convergence-Time","heatmap","Total Convergence Time for Population 100",arena,comm_data=comm_data,size=100)
-    #plot_design(log,"CRW-Exponent-Rho","Levy-Exponent-Alpha","Convergence-Time-(Discounted)","heatmap","Total Convergence Time (Discounted) for Population 100",arena,comm_data=comm_data,size=100,separator="Communication-Range")
-    #plot_design(log,"CRW-Exponent-Rho","Levy-Exponent-Alpha","Convergence-Time-(Discounted)","heatmap","Total Convergence Time (Discounted) for Population 200",arena,comm_data=comm_data,size=200,separator="Communication-Range")
+    # #plot_design(log,"CRW-Exponent-Rho","Levy-Exponent-Alpha","Convergence-Time","heatmap","Total Convergence Time for Population 10",arena,comm_data=comm_data,size=10)
+    # #plot_design(log,"CRW-Exponent-Rho","Levy-Exponent-Alpha","Convergence-Time","heatmap","Total Convergence Time for Population 10",arena,comm_data=comm_data,size=10,separator="Communication-Range")    
+    # #plot_design(log,"CRW-Exponent-Rho","Levy-Exponent-Alpha","Convergence-Time","heatmap","Total Convergence Time for Population 20",arena,comm_data=comm_data,size=20,separator="Communication-Range")
+    # #plot_design(log,"CRW-Exponent-Rho","Levy-Exponent-Alpha","Convergence-Time","heatmap","Total Convergence Time for Population 50",arena,comm_data=comm_data,size=50,separator="Communication-Range")
+    # #plot_design(log,"CRW-Exponent-Rho","Levy-Exponent-Alpha","Convergence-Time","heatmap","Total Convergence Time for Population 100",arena,comm_data=comm_data,size=100)
+    # #plot_design(log,"CRW-Exponent-Rho","Levy-Exponent-Alpha","Convergence-Time","heatmap","Total Convergence Time for Population 100",arena,comm_data=comm_data,size=100,separator="Communication-Range")
+    # #plot_design(log,"CRW-Exponent-Rho","Levy-Exponent-Alpha","Convergence-Time","heatmap","Total Convergence Time for Population 200",arena,comm_data=comm_data,size=200,separator="Communication-Range")
+    # #plot_design(log,"CRW-Exponent-Rho","Levy-Exponent-Alpha","Convergence-Time-(Discounted)","heatmap","Total Convergence Time (Discounted) for Population 10",arena,comm_data=comm_data,size=10,separator="Communication-Range")    
+    # #plot_design(log,"CRW-Exponent-Rho","Levy-Exponent-Alpha","Convergence-Time-(Discounted)","heatmap","Total Convergence Time (Discounted) for Population 20",arena,comm_data=comm_data,size=20,separator="Communication-Range")
+    # #plot_design(log,"CRW-Exponent-Rho","Levy-Exponent-Alpha","Convergence-Time-(Discounted)","heatmap","Total Convergence Time (Discounted) for Population 50",arena,comm_data=comm_data,size=50,separator="Communication-Range")
+    # #plot_design(log,"CRW-Exponent-Rho","Levy-Exponent-Alpha","Convergence-Time","heatmap","Total Convergence Time for Population 100",arena,comm_data=comm_data,size=100)
+    # #plot_design(log,"CRW-Exponent-Rho","Levy-Exponent-Alpha","Convergence-Time-(Discounted)","heatmap","Total Convergence Time (Discounted) for Population 100",arena,comm_data=comm_data,size=100,separator="Communication-Range")
+    # #plot_design(log,"CRW-Exponent-Rho","Levy-Exponent-Alpha","Convergence-Time-(Discounted)","heatmap","Total Convergence Time (Discounted) for Population 200",arena,comm_data=comm_data,size=200,separator="Communication-Range")
     pdf.close()
 
 
