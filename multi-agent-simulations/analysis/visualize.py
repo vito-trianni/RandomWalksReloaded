@@ -629,16 +629,17 @@ def main():
                     snap=pd.DataFrame(np.concatenate((b[time_snap::20].reshape(-1,1),np.ones((agent_in_time_shape,len(k)))*np.asarray(k).T),1),columns=["Distance From Centre",
                           "Target-Distance","Bias","Levy-Exponent-Alpha","CRW-Exponent-Rho","Population-Size"]).copy()
                     snap=snap[~snap['Distance From Centre'].isnull()]
-                    fit=powerlaw.Fit(np.asarray(snap['Distance From Centre']))
-                    fit.power_law.plot_pdf(label='Time Snap at'+str((time_snap+1)*5000),c=cmap(13*time_snap),ax=axs[np.where(np.isclose(np.linspace(1,2,6),k[-3]))[0][0]][np.where(np.isclose(np.linspace(0,0.9,7),k[-2]))[0][0]])
+                    fit=powerlaw.Fit(np.asarray(snap['Distance From Centre']),xmin=0.00001)
+                    fit.plot_pdf(linewidth=2,label='Time Snap at'+str((time_snap+1)*5000),c=cmap(13*time_snap),ax=axs[np.where(np.isclose(np.linspace(1,2,6),k[-3]))[0][0]][np.where(np.isclose(np.linspace(0,0.9,7),k[-2]))[0][0]])
                     if np.where(np.isclose(np.linspace(1,2,6),k[-3]))[0][0] ==5:                        
                         axs[np.where(np.isclose(np.linspace(1,2,6),k[-3]))[0][0]][np.where(np.isclose(np.linspace(0,0.9,7),k[-2]))[0][0]].set_xlabel(r"$\rho$ "+str(k[-2]))
                     if np.where(np.isclose(np.linspace(0,0.9,7),k[-2]))[0][0]==0:
                         axs[np.where(np.isclose(np.linspace(1,2,6),k[-3]))[0][0]][np.where(np.isclose(np.linspace(0,0.9,7),k[-2]))[0][0]].set_ylabel(r"$\alpha$ "+str(k[-3]))
+                    #line=axs[np.where(np.isclose(np.linspace(1,2,6),k[-3]))[0][0]][np.where(np.isclose(np.linspace(0,0.9,7),k[-2]))[0][0]].lines[time_snap]
+                    #print line.get_xydata()
                 axs[np.where(np.isclose(np.linspace(1,2,6),k[-3]))[0][0]][np.where(np.isclose(np.linspace(0,0.9,7),k[-2]))[0][0]].set_ylim(0.00001,100)
-                axs[np.where(np.isclose(np.linspace(1,2,6),k[-3]))[0][0]][np.where(np.isclose(np.linspace(0,0.9,7),k[-2]))[0][0]].set_xlim(0.1,1000)
+                axs[np.where(np.isclose(np.linspace(1,2,6),k[-3]))[0][0]][np.where(np.isclose(np.linspace(0,0.9,7),k[-2]))[0][0]].set_xlim(0.01,1000)
                 counter+=1
-                    
             if counter==42:
                 plt.suptitle(r"Population Size %s Target-Distance %s Bias Value %s" %(str(int(k[4])),str(k[0]),str(k[1])))
                 plt.subplots_adjust(top=0.94,left=0.04,right=0.98,bottom=0.08,wspace=0.09,hspace=0.09)
@@ -646,25 +647,25 @@ def main():
                 counter=0
                 pdf.savefig(image_map,dpi=900)
 
-    log=aggregate_stats(log,arena,truncated)
-    log=pd.DataFrame(log)
-    if comm_data==1:
-        first_label="Communication-Range"
-    else:
-        first_label="Bias"        
-    log.columns=[first_label,"Levy-Exponent-Alpha","CRW-Exponent-Rho","Population-Size"]+["Convergence_Count","Convergence-Time","Convergence-Time-(Discounted)",
-                                                                               "Ratio of Total Visits","Percentage of Total Agents with Info","First Time of Passage (Exponential)","First Time of Passage (Weibull)"]
-    log=log.assign(Degree=np.pi*np.power(log["Communication-Range"],2)*log["Population-Size"])
-    log.rename(columns={"Degree":"Degree of Geometric Network"},inplace=True)                                                                                 
+    # log=aggregate_stats(log,arena,truncated)
+    # log=pd.DataFrame(log)
+    # if comm_data==1:
+    #     first_label="Communication-Range"
+    # else:
+    #     first_label="Bias"        
+    # log.columns=[first_label,"Levy-Exponent-Alpha","CRW-Exponent-Rho","Population-Size"]+["Convergence_Count","Convergence-Time","Convergence-Time-(Discounted)",
+    #                                                                            "Ratio of Total Visits","Percentage of Total Agents with Info","First Time of Passage (Exponential)","First Time of Passage (Weibull)"]
+    # log=log.assign(Degree=np.pi*np.power(log["Communication-Range"],2)*log["Population-Size"])
+    # log.rename(columns={"Degree":"Degree of Geometric Network"},inplace=True)                                                                                 
 
-    #plot_design(log,"Degree of Geometric Network","Convergence-Time-(Discounted)","scatter","consensus-plot","Relationship between Degree of Random Geometric Network and Discounted Convergence Time",arena,comm_data=comm_data,separator="Population-Size")
-    #plot_design(log,"Degree of Geometric Network","Convergence-Time-(Discounted)","line","consensus-plot","Relationship between Degree of Random Geometric Network and Discounted Convergence Time",arena,comm_data=comm_data,separator="Communication-Range")
-    #plot_design(log.copy(),"Degree of Geometric Network","Convergence-Time-(Discounted)","violin","consensus-plot","Relationship between Degree of Random Geometric Network and Discounted Convergence Time",arena,comm_data=comm_data,separator="Communication-Range")
-    plot_design(log.copy(),"Degree of Geometric Network","Convergence-Time-(Discounted)","violin","consensus-plot","Relationship between Degree of Random Geometric Network and Discounted Convergence Time",arena,comm_data=comm_data)
+    # #plot_design(log,"Degree of Geometric Network","Convergence-Time-(Discounted)","scatter","consensus-plot","Relationship between Degree of Random Geometric Network and Discounted Convergence Time",arena,comm_data=comm_data,separator="Population-Size")
+    # #plot_design(log,"Degree of Geometric Network","Convergence-Time-(Discounted)","line","consensus-plot","Relationship between Degree of Random Geometric Network and Discounted Convergence Time",arena,comm_data=comm_data,separator="Communication-Range")
+    # #plot_design(log.copy(),"Degree of Geometric Network","Convergence-Time-(Discounted)","violin","consensus-plot","Relationship between Degree of Random Geometric Network and Discounted Convergence Time",arena,comm_data=comm_data,separator="Communication-Range")
+    # plot_design(log.copy(),"Degree of Geometric Network","Convergence-Time-(Discounted)","violin","consensus-plot","Relationship between Degree of Random Geometric Network and Discounted Convergence Time",arena,comm_data=comm_data)
     
-    plot_design(log.copy(),"Degree of Geometric Network","Convergence-Time-(Discounted)","boxplot","consensus-plot","Relationship between Degree of Random Geometric Network and Discounted Convergence Time",arena,comm_data=comm_data)
-    plot_design(log.copy(),"Degree of Geometric Network","Convergence-Time-(Discounted)","lmplot","consensus-plot","Relationship between Degree of Random Geometric Network and Discounted Convergence Time",arena,comm_data=comm_data,separator="Population-Size")
-    plot_design(log.copy(),"Degree of Geometric Network","Convergence-Time-(Discounted)","lmplot","consensus-plot","Relationship between Degree of Random Geometric Network and Discounted Convergence Time",arena,comm_data=comm_data,separator="Communication-Range")
+    # plot_design(log.copy(),"Degree of Geometric Network","Convergence-Time-(Discounted)","boxplot","consensus-plot","Relationship between Degree of Random Geometric Network and Discounted Convergence Time",arena,comm_data=comm_data)
+    # plot_design(log.copy(),"Degree of Geometric Network","Convergence-Time-(Discounted)","lmplot","consensus-plot","Relationship between Degree of Random Geometric Network and Discounted Convergence Time",arena,comm_data=comm_data,separator="Population-Size")
+    # plot_design(log.copy(),"Degree of Geometric Network","Convergence-Time-(Discounted)","lmplot","consensus-plot","Relationship between Degree of Random Geometric Network and Discounted Convergence Time",arena,comm_data=comm_data,separator="Communication-Range")
     
     #plot_design(log,"CRW-Exponent-Rho","Levy-Exponent-Alpha","First Time of Passage (Exponential)","heatmap","Average First Passage Time (Exponential) for all Populations",arena,comm_data=comm_data)
     #plot_design(log,"CRW-Exponent-Rho","Levy-Exponent-Alpha","First Time of Passage (Weibull)","heatmap","Average First Passage Time (Weibull) for all Populations",arena,comm_data=comm_data)

@@ -73,6 +73,6 @@ class Results:
                                                    percentage_tot_agents_with_info_array,
                                                    first_passage_time
                                                  )), fmt="%d %.0f %.0f %.2f %d"+" %.0f"*first_passage_time.shape[1])#, header=head)
-        new_filename=data_filename.replace('result_','distance_')
+        new_filename=data_filename.replace('result_','tocentre_')
         np.savetxt(new_filename, np.column_stack((distance_from_centre)).T,
                    fmt=" %.2f"*first_passage_time.shape[1])
