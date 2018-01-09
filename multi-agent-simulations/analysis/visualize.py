@@ -101,33 +101,33 @@ def aggregate_stats(data,arena,truncated=1):
             weibull=Weib()
             popt_exponential,_= curve_fit(exponential.cdf,xdata=subset,ydata=np.squeeze(F),bounds=(-1000,1000),method='trf')
             popt_weibull,_= curve_fit(weibull.cdf,xdata=subset,ydata=np.squeeze(F),bounds=(0,[bound_is,10]),method='trf')
-            #fig=plt.figure()
-            y_exp=exponential.cdf(subset,popt_exponential[0])
-            y_weib=weibull.cdf(subset,popt_weibull[0],popt_weibull[1])
-            #error_exp= np.power(y_exp-np.squeeze(F),2)
-            #error_weib=np.power(y_weib-np.squeeze(F),2)
-            #plt.plot(subset,y_exp,'g',linewidth=5,label="Exponential Distribution")
-            #plt.plot(subset,y_weib,'r',linewidth=5,label="Weibull Distribution")
-            #plt.plot(subset,F,'b',linewidth=5,label="K-M stats")
-            #plt.legend()
-            #plt.ylim(0,1)
-            #label="Alpha "+str(dataset[sample,1])+" Rho "+str(dataset[sample,2])+" Time of First Passage for "+str(censored)+"/"+str(uncensored)+" censored values"
-            #plt.title(label)
-            #plt.xlabel("Number of time steps")
-            #plt.ylabel("Synchronisation probability")
-            #plt.show()
-            #plt.close()
-            #pdf.savefig( fig )
-            #fig=plt.figure()
-            #plt.plot(subset,error_exp,'r--',label="for Exponential Distribution")
-            #plt.plot(subset,error_weib,'g--',label="for Weibull Distribution")
-            #plt.xlabel("Number of Time Steps")
-            #plt.ylabel("Mean Square Error")
-            #plt.legend()
-            #label="Alpha "+str(dataset[sample,1])+" Rho "+str(dataset[sample,2])+" L2 Error between Distribution and K-M Statistics for "+str(censored)+"/"+str(uncensored)+" censored values"
-            #plt.title(label)
-            #plt.close()
-            #pdf.savefig( fig )
+            # fig=plt.figure()
+            # y_exp=exponential.cdf(subset,popt_exponential[0])
+            # y_weib=weibull.cdf(subset,popt_weibull[0],popt_weibull[1])
+            # error_exp= np.power(y_exp-np.squeeze(F),2)
+            # error_weib=np.power(y_weib-np.squeeze(F),2)
+            # plt.plot(subset,y_exp,'g',linewidth=5,label="Exponential Distribution")
+            # plt.plot(subset,y_weib,'r',linewidth=5,label="Weibull Distribution")
+            # plt.plot(subset,F,'b',linewidth=5,label="K-M stats")
+            # plt.legend()
+            # plt.ylim(0,1)
+            # label="Alpha "+str(dataset[sample,1])+" Rho "+str(dataset[sample,2])+" Time of First Passage for "+str(censored)+"/"+str(uncensored)+" censored values"
+            # plt.title(label)
+            # plt.xlabel("Number of time steps")
+            # plt.ylabel("Synchronisation probability")
+            # #plt.show()
+            # plt.close()
+            # pdf.savefig( fig )
+            # fig=plt.figure()
+            # plt.plot(subset,error_exp,'r--',label="for Exponential Distribution")
+            # plt.plot(subset,error_weib,'g--',label="for Weibull Distribution")
+            # plt.xlabel("Number of Time Steps")
+            # plt.ylabel("Mean Square Error")
+            # plt.legend()
+            # label="Alpha "+str(dataset[sample,1])+" Rho "+str(dataset[sample,2])+" L2 Error between Distribution and K-M Statistics for "+str(censored)+"/"+str(uncensored)+" censored values"
+            # plt.title(label)
+            # plt.close()
+            # pdf.savefig( fig )
             for swarm in range(len(swarms)):
                 time_list.append(data[len(swarms)*sample+swarm,:9].tolist()+[1./popt_exponential[0],sc.gamma(1+(1./popt_weibull[1]))*popt_weibull[0]])
     
@@ -540,7 +540,7 @@ def plot_design(data,x,y,out,plttype,title,arena,comm_data=False,rho=None,alpha=
             sns.plt.subplots_adjust(top=0.9,left=0.03,right=0.99,wspace=0.06,hspace=0.25,bottom=0.1)    
     else:
         sns.plt.xlabel(x.name)
-        sns.plt.subplots_adjust(top=0.9,left=0.06,right=0.97,wspace=0.08,hspace=0.25,bottom=0.06)
+        sns.plt.subplots_adjust(top=0.9,left=0.06,right=0.97,wspace=0.08,hspace=0.25,bottom=0.1)
     sns.plt.ylabel(y.name)
     sns.plt.suptitle(title)
     
@@ -574,6 +574,8 @@ def main():
     ap.add_argument("-t", "--truncated", help="1 or 0")
     ap.add_argument("-u", "--arena", help="0 for unbounded, 1 for bounded and 2 for periodic")
     ap.add_argument("-p", "--path", help="enter path")
+    ap.add_argument("-a", "--distance", help="enter target distance")
+    ap.add_argument("-b", "--bias", help="enter bias value")
     ap.add_argument("-d", "--datatype", help="Enter unique filename prefix for data stored")
     ap.add_argument("-c", "--comm", help="Enter 1 if communication range data is present")
     args=vars(ap.parse_args())
@@ -591,6 +593,10 @@ def main():
         prefix='result'
     else:
         prefix=str(args["datatype"])
+    if args.get("bias") is not None:
+        bias=float(args["bias"])
+    else:
+        bias=0.0
     log=[]
     counter=0
     image_map=False
@@ -647,16 +653,19 @@ def main():
                 counter=0
                 pdf.savefig(image_map,dpi=900)
 
-    # log=aggregate_stats(log,arena,truncated)
-    # log=pd.DataFrame(log)
-    # if comm_data==1:
-    #     first_label="Communication-Range"
-    # else:
-    #     first_label="Bias"        
-    # log.columns=[first_label,"Levy-Exponent-Alpha","CRW-Exponent-Rho","Population-Size"]+["Convergence_Count","Convergence-Time","Convergence-Time-(Discounted)",
-    #                                                                            "Ratio of Total Visits","Percentage of Total Agents with Info","First Time of Passage (Exponential)","First Time of Passage (Weibull)"]
-    # log=log.assign(Degree=np.pi*np.power(log["Communication-Range"],2)*log["Population-Size"])
-    # log.rename(columns={"Degree":"Degree of Geometric Network"},inplace=True)                                                                                 
+    log=aggregate_stats(log,arena,truncated)
+    log=pd.DataFrame(log)
+    if comm_data==1:
+        first_label="Communication-Range"
+    else:
+        first_label="Bias"        
+    log.columns=[first_label,"Levy-Exponent-Alpha","CRW-Exponent-Rho","Population-Size"]+["Convergence_Count","Convergence-Time","Convergence-Time-(Discounted)",
+                                                                               "Ratio of Total Visits","Percentage of Total Agents with Info","First Time of Passage (Exponential)","First Time of Passage (Weibull)"]
+    if comm_data==1:
+        log=log.assign(Degree=np.pi*np.power(log["Communication-Range"],2)*log["Population-Size"])
+    elif bias!=0.0 and arena==0:
+        log=log[log["Bias"]==bias].copy()
+    log.rename(columns={"Degree":"Degree of Geometric Network"},inplace=True)                                                                                 
 
     # #plot_design(log,"Degree of Geometric Network","Convergence-Time-(Discounted)","scatter","consensus-plot","Relationship between Degree of Random Geometric Network and Discounted Convergence Time",arena,comm_data=comm_data,separator="Population-Size")
     # #plot_design(log,"Degree of Geometric Network","Convergence-Time-(Discounted)","line","consensus-plot","Relationship between Degree of Random Geometric Network and Discounted Convergence Time",arena,comm_data=comm_data,separator="Communication-Range")
@@ -667,10 +676,10 @@ def main():
     # plot_design(log.copy(),"Degree of Geometric Network","Convergence-Time-(Discounted)","lmplot","consensus-plot","Relationship between Degree of Random Geometric Network and Discounted Convergence Time",arena,comm_data=comm_data,separator="Population-Size")
     # plot_design(log.copy(),"Degree of Geometric Network","Convergence-Time-(Discounted)","lmplot","consensus-plot","Relationship between Degree of Random Geometric Network and Discounted Convergence Time",arena,comm_data=comm_data,separator="Communication-Range")
     
-    #plot_design(log,"CRW-Exponent-Rho","Levy-Exponent-Alpha","First Time of Passage (Exponential)","heatmap","Average First Passage Time (Exponential) for all Populations",arena,comm_data=comm_data)
-    #plot_design(log,"CRW-Exponent-Rho","Levy-Exponent-Alpha","First Time of Passage (Weibull)","heatmap","Average First Passage Time (Weibull) for all Populations",arena,comm_data=comm_data)
+    plot_design(log,"CRW-Exponent-Rho","Levy-Exponent-Alpha","First Time of Passage (Exponential)","heatmap","Average First Passage Time (Exponential) for all Populations",arena,comm_data=comm_data)
+    plot_design(log,"CRW-Exponent-Rho","Levy-Exponent-Alpha","First Time of Passage (Weibull)","heatmap","Average First Passage Time (Weibull) for all Populations",arena,comm_data=comm_data)
     
-    # #plot_design(log,"CRW-Exponent-Rho","Levy-Exponent-Alpha","Ratio of Total Visits","heatmap","PhiC ratio of Visited to Total Agents",arena,comm_data=comm_data)
+    plot_design(log,"CRW-Exponent-Rho","Levy-Exponent-Alpha","Ratio of Total Visits","heatmap","PhiC ratio of Visited to Total Agents",arena,comm_data=comm_data)
     # #plot_design(log,"Population-Size","Convergence-Time","CRW-Exponent-Rho","lmplot","Convergence Times for Alpha=1.4",arena,comm_data=comm_data,alpha=1.4)
     # #plot_design(log,"Population-Size","Convergence-Time","CRW-Exponent-Rho","lmplot","Convergence Times for Alpha=1.4",arena,comm_data=comm_data,alpha=1.4,separator="Communication-Range")
     # #plot_design(log,"Communication-Range","Convergence-Time","CRW-Exponent-Rho","lmplot","Convergence Times for Alpha=1.4",arena,comm_data=comm_data,alpha=1.4,separator="Population-Size")
