@@ -8,3 +8,4 @@ multi-agent-simulations/results/
 *.pdf
 *.swp
 New/
+build/
