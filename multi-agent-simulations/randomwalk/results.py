@@ -62,10 +62,7 @@ class Results:
         percentage_tot_agents_with_info_array = np.ma.array(self.percentage_tot_agents_with_info)#, mask=np.logical_not(convergence_array))
         first_passage_time=np.ma.array(self.first_passage_time)
         #head = ' '.join(str(e) for e in [np.mean(convergence_array.astype(int)), np.mean(self.convergence_time), np.mean(self.conv_time) , np.mean(self.efficiency), np.mean(self.average_total_time), np.mean(self.total_visits), np.mean(self.percentage_tot_agents_with_info) ])
-        distance_from_centre=np.ma.array(self.distance_from_centre)
-        distance_from_centre=distance_from_centre.swapaxes(1,2)
-        shape_data=distance_from_centre.shape
-        distance_from_centre=distance_from_centre.reshape(shape_data[0]*shape_data[1],shape_data[2])
+        
         np.savetxt(data_filename, np.column_stack((convergence_array,
                                                    convergence_time_array,
                                                    conv_time_array,
@@ -73,6 +70,11 @@ class Results:
                                                    percentage_tot_agents_with_info_array,
                                                    first_passage_time
                                                  )), fmt="%d %.0f %.0f %.2f %d"+" %.0f"*first_passage_time.shape[1])#, header=head)
-        new_filename=data_filename.replace('result_','tocentre_')
-        np.savetxt(new_filename, np.column_stack((distance_from_centre)).T,
-                   fmt=" %.2f"*first_passage_time.shape[1])
+        if np.ravel(self.distance_from_centre):
+            distance_from_centre=np.ma.array(self.distance_from_centre)
+            distance_from_centre=distance_from_centre.swapaxes(1,2)
+            shape_data=distance_from_centre.shape
+            distance_from_centre=distance_from_centre.reshape(shape_data[0]*shape_data[1],shape_data[2])
+            new_filename=data_filename.replace('result_','tocentre_')
+            np.savetxt(new_filename, np.column_stack((distance_from_centre)).T,
+                       fmt=" %.2f"*first_passage_time.shape[1])
