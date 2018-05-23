@@ -7,6 +7,7 @@ Created on Wed Jul  9 16:41:29 2014
 
 import os, math, random, sys, getopt, importlib, copy
 import xml.etree.ElementTree as ET
+import numpy as np
 
 ####################################################################
 # Pysage 2D vector (http://www.pygame.org/wiki/2DVectorClass )
@@ -322,6 +323,11 @@ class Vec2d(object):
         other_length_sqrd = other[0]*other[0] + other[1]*other[1]
         projected_length_times_other_length = self.dot(other)
         return other*(projected_length_times_other_length/other_length_sqrd)
+
+    def return_within_circle(self,other):
+        O=Vec2d(other)
+        A=self.__sub__(O)
+        return O.__add__(other[0]*A.normalized())
  
     def cross(self, other):
         return self.x*other[1] - self.y*other[0]

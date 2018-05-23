@@ -1,4 +1,4 @@
-#!python
+#!/usr/local/bin/python
 
 from pysage import pysage
 import sys

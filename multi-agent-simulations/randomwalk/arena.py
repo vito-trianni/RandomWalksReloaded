@@ -53,7 +53,7 @@ class CRWLEVYArena(pysage.Arena):
         # control flag : value of flag
         self.central_place = None
         s_arena_type = config_element.attrib.get("arena_type")
-        if s_arena_type == "bounded" or s_arena_type == "periodic" or s_arena_type == "unbounded":
+        if s_arena_type == "bounded" or s_arena_type == "periodic" or s_arena_type == "unbounded" or s_arena_type == "circular":
             self.arena_type = s_arena_type
         else:
             print "Arena type", s_arena_type, "not recognised, using default value 'bounded'"
@@ -62,8 +62,9 @@ class CRWLEVYArena(pysage.Arena):
         #  size_radius
         ssize_radius = config_element.attrib.get("size_radius");
         if ssize_radius is not None:
-            self.dimensions_radius = pysage.Vec2d( map(float, ssize_radius.split(',')) )
-
+            self.dimensions_radius = float(ssize_radius)
+        elif ssize_radius is None and self.arena_type == "circular":
+            self.dimensions_radius = float(self.dimensions.x/2.0)
 
         # control parameter: target_distance
         self.target_distance = 1.0
@@ -95,6 +96,26 @@ class CRWLEVYArena(pysage.Arena):
                 # target_position_radius = random.uniform(self.dimensions_radius.x,self.dimensions_radius.y);
                 target_position_angle  = random.uniform(-math.pi,math.pi);
                 target.position = self.dimensions/2.0 + pysage.Vec2d(self.target_distance*math.cos(target_position_angle),self.target_distance*math.sin(target_position_angle))
+        elif self.arena_type == "circular":
+            for target in self.targets:
+                target_x = random.uniform(0, 2*self.dimensions_radius)
+                e1=self.dimensions_radius -  math.sqrt(math.pow(self.dimensions_radius,2) - math.pow(target_x - self.dimensions_radius,2))
+                e2 = self.dimensions_radius + math.sqrt(math.pow(self.dimensions_radius,2) - math.pow(target_x - self.dimensions_radius,2))
+                target.position = pysage.Vec2d(target_x,random.uniform(e1,e2))
+                del target_x,e1,e2
+            for agent in self.agents:
+                 on_target = True
+                 while on_target:
+                     pos_x=random.uniform(0,2*self.dimensions_radius)
+                     e1=self.dimensions_radius -  math.sqrt(math.pow(self.dimensions_radius,2) - math.pow(pos_x - self.dimensions_radius,2))
+                     e2 = self.dimensions_radius + math.sqrt(math.pow(self.dimensions_radius,2) - math.pow(pos_x - self.dimensions_radius,2))
+                     agent.position = pysage.Vec2d(pos_x,random.uniform(e1,e2)) 
+                     del pos_x,e1,e2
+                     on_target= False
+                     for t in self.targets:
+                         if (t.position - agent.position).get_length() < t.size:
+                             on_target = True
+                             break
         else:     
             # targets initialised anywhere in the bounded or periodic arena
             for target in self.targets:    ##### Different initalisation if bounded/periodic or unbounded
@@ -102,13 +123,14 @@ class CRWLEVYArena(pysage.Arena):
              # agents initialised anywhere in the bounded/periodic arena
             for agent in self.agents:
                  on_target = True
-                 while on_target:  
-                       agent.position = pysage.Vec2d(random.uniform(0,self.dimensions.x),random.uniform(0,self.dimensions.y))
-                       on_target= False
-                       for t in self.targets:   
-                           if (t.position - agent.position).get_length() < t.size:                       
-                               on_target = True
-                               break            
+                 while on_target:
+                     agent.position = pysage.Vec2d(random.uniform(0,self.dimensions.x),random.uniform(0,self.dimensions.y))
+                     on_target= False
+                     for t in self.targets:
+                         if (t.position - agent.position).get_length() < t.size:
+                             on_target = True
+                             break
+                               
     
         self.inventory_size = 0
         self.has_converged = False
@@ -146,6 +168,9 @@ class CRWLEVYArena(pysage.Arena):
                     a.position.y = 0
                 elif a.position.y > self.dimensions.y:
                     a.position.y = self.dimensions.y
+            elif self.arena_type == "circular":
+                if a.position.get_distance((self.dimensions_radius,self.dimensions_radius)) > self.dimensions_radius:
+                    a.position=a.position.return_within_circle((self.dimensions_radius,self.dimensions_radius))
             elif self.arena_type == "periodic":
                 ##### Implement the periodic boundary conditions
                 a.position = a.position % self.dimensions
@@ -163,8 +188,7 @@ class CRWLEVYArena(pysage.Arena):
 
         # update simulation step counter
         self.num_steps += 1
-
-    
+  
    
     ##########################################################################
     # return a list of neighbours
