@@ -61,7 +61,8 @@ def aggregate_stats(data,arena,truncated=1):
         bound_is=750000
     ## Bias 0, Alpha 1, Rho 2, Population 3, Convergence Bool 4, Convergence Time 5, Relative Convergence 6,
     ## PhiC 7, Ratio of Agents with Info 8, 9 onwards is first times of passage
-    ind=np.lexsort((data[:,3],data[:,2], data[:,1]))
+    ind=np.lexsort((data[:,3],data[:,2], data[:,1],data[:,0]))
+
 
     data=data[ind]
     dataset=[]
@@ -128,9 +129,9 @@ def aggregate_stats(data,arena,truncated=1):
             # plt.title(label)
             # plt.close()
             # pdf.savefig( fig )
+            #print sample,dataset[sample,:3],popt_weibull,sc.gamma(1+(1./popt_weibull[1]))*popt_weibull[0]
             for swarm in range(len(swarms)):
                 time_list.append(data[len(swarms)*sample+swarm,:9].tolist()+[1./popt_exponential[0],sc.gamma(1+(1./popt_weibull[1]))*popt_weibull[0]])
-    
 
     return np.asarray(time_list)    
 
@@ -269,7 +270,7 @@ def plot_design(data,x,y,out,plttype,title,arena,comm_data=False,rho=None,alpha=
         convergence_time=Variable_Dictionary("Convergence-Time",graph_limit,None)
 
     if comm_data==True:
-        dict_variables=[levy_alpha,crw_rho,pop_n,comm_rad,convergence_time]
+    	dict_variables=[levy_alpha,crw_rho,pop_n,comm_rad,convergence_time]
     else:
         dict_variables=[levy_alpha,crw_rho,pop_n,convergence_time]
     dict_inputs=[x,y]
@@ -295,6 +296,9 @@ def plot_design(data,x,y,out,plttype,title,arena,comm_data=False,rho=None,alpha=
         if dict_variables[i].copied==False and dict_variables[i].fixed!=None and plttype!='consensus-plot': 
             z=copy.deepcopy(dict_variables[i])
             dict_inputs.append(z)
+            dict_variables[i].copied=True
+            if separator==False:
+            	data=data[data[dict_variables[i].name]==dict_variables[i].fixed]
         elif dict_variables[i].copied==False and plttype=='consensus-plot' and separator!=False:
             z=copy.deepcopy(dict_variables[i])
         
@@ -331,6 +335,8 @@ def plot_design(data,x,y,out,plttype,title,arena,comm_data=False,rho=None,alpha=
                 for ind in range(sep_data.shape[0]):
                     bin_y=(np.asarray(np.asarray(sep_data[y.name]).copy())-float(y.length[0]))/(float(y.length[-1])-float(y.length[-2]))
                     bin_x=(np.asarray(np.asarray(sep_data[x.name]).copy())-float(x.length[0]))/(float(x.length[-1])-float(x.length[-2]))
+                    #_,bin_y=np.unique(np.asarray(data[y.name]), return_inverse=True)
+                    #_,bin_x=np.unique(np.asarray(data[x.name]), return_inverse=True)
                     ## Uncomment this to verify your data
                     bin_y=len(y.length)-bin_y-1
                     
@@ -350,6 +356,9 @@ def plot_design(data,x,y,out,plttype,title,arena,comm_data=False,rho=None,alpha=
             ## Make bins
             bin_y=(np.asarray(np.asarray(data[y.name]).copy())-float(y.length[0]))/(float(y.length[-1])-float(y.length[-2]))
             bin_x=(np.asarray(np.asarray(data[x.name]).copy())-float(x.length[0]))/(float(x.length[-1])-float(x.length[-2]))
+            #_,bin_y=np.unique(np.asarray(data[y.name]), return_inverse=True)
+            #_,bin_x=np.unique(np.asarray(data[x.name]), return_inverse=True)
+                    
             ## Uncomment this to verify your data
             #data.to_csv('final_data.csv')
             bin_y=len(y.length)-bin_y-1
@@ -500,8 +509,8 @@ def plot_design(data,x,y,out,plttype,title,arena,comm_data=False,rho=None,alpha=
                 elif out=="boxplot":
                     sns.boxplot(data=data,x=x,y=y.name,saturation=1,linewidth=.5,ax=ax)
                 percolations=[np.log10(1),np.log10(4.51)]
-                a1=np.where(np.sort(np.append(np.unique(data[x]),percolations[0]))==percolations[0])[0]-0.5
-                a2=np.where(np.sort(np.append(np.unique(data[x]),percolations[1]))==percolations[1])[0]-0.5
+                a1=np.where(np.sort(np.append(np.unique(data[x]),percolations[0]))==percolations[0])[0][0]-0.5
+                a2=np.where(np.sort(np.append(np.unique(data[x]),percolations[1]))==percolations[1])[0][0]-0.5
                 sns.rugplot([a1,a2],height=4,ax=ax,color='navy',linestyle='dashed')
                 ax.annotate('K=1',xy=[a1,2],annotation_clip=True,color='indigo',alpha=1,size=8,weight='light',ha='right',va='bottom',rotation=90)
                 ax.annotate('K=4.51',xy=[a2,2],annotation_clip=True,color='indigo',alpha=1,size=8,weight='light',ha='right',va='bottom',rotation=90)
@@ -524,8 +533,8 @@ def plot_design(data,x,y,out,plttype,title,arena,comm_data=False,rho=None,alpha=
                     elif out=="boxplot":
                         sns.boxplot(data=dummybox[num],x=x,y=y.name,saturation=1,linewidth=.5,hue=z.name,ax=ax)
                     percolations=[np.log10(1),np.log10(4.51)]
-                    a1=np.where(np.sort(np.append(np.unique(data[x]),percolations[0]))==percolations[0])[0]-0.5
-                    a2=np.where(np.sort(np.append(np.unique(data[x]),percolations[1]))==percolations[1])[0]-0.5
+                    a1=np.where(np.sort(np.append(np.unique(data[x]),percolations[0]))==percolations[0])[0][0]-0.5
+                    a2=np.where(np.sort(np.append(np.unique(data[x]),percolations[1]))==percolations[1])[0][0]-0.5
                     sns.rugplot([a1,a2],height=4,ax=ax,color='navy',linestyle='dashed')
                     ax.annotate('K=1',xy=[a1,2],annotation_clip=True,color='indigo',alpha=1,size=8,weight='light',ha='right',va='bottom',rotation=90)
                     ax.annotate('K=4.51',xy=[a2,2],annotation_clip=True,color='indigo',alpha=1,size=8,weight='light',ha='right',va='bottom',rotation=90)
@@ -656,6 +665,10 @@ def main():
 
     log=aggregate_stats(log,arena,truncated)
     log=pd.DataFrame(log)
+    if arena == 3:
+    	area = np.pi * 0.5 * 0.5
+    else:
+    	area = 1 * 1
     if comm_data==1:
         first_label="Communication-Range"
     else:
@@ -663,21 +676,24 @@ def main():
     log.columns=[first_label,"Levy-Exponent-Alpha","CRW-Exponent-Rho","Population-Size"]+["Convergence_Count","Convergence-Time","Convergence-Time-(Discounted)",
                                                                                "Ratio of Total Visits","Percentage of Total Agents with Info","First Time of Passage (Exponential)","First Time of Passage (Weibull)"]
     if comm_data==1:
-        log=log.assign(Degree=np.pi*np.power(log["Communication-Range"],2)*log["Population-Size"])
-    log.rename(columns={"Degree":"Degree of Geometric Network"},inplace=True)                                                                                 
+        log=log.assign(Degree=np.pi*np.power(area,-1)*np.power(log["Communication-Range"],2)*log["Population-Size"])
+        log.rename(columns={"Degree":"Degree of Geometric Network"},inplace=True)                                                                                 
 
     # #plot_design(log,"Degree of Geometric Network","Convergence-Time-(Discounted)","scatter","consensus-plot","Relationship between Degree of Random Geometric Network and Discounted Convergence Time",arena,comm_data=comm_data,separator="Population-Size")
     # #plot_design(log,"Degree of Geometric Network","Convergence-Time-(Discounted)","line","consensus-plot","Relationship between Degree of Random Geometric Network and Discounted Convergence Time",arena,comm_data=comm_data,separator="Communication-Range")
-    # #plot_design(log.copy(),"Degree of Geometric Network","Convergence-Time-(Discounted)","violin","consensus-plot","Relationship between Degree of Random Geometric Network and Discounted Convergence Time",arena,comm_data=comm_data,separator="Communication-Range")
-    # plot_design(log.copy(),"Degree of Geometric Network","Convergence-Time-(Discounted)","violin","consensus-plot","Relationship between Degree of Random Geometric Network and Discounted Convergence Time",arena,comm_data=comm_data)
+    #plot_design(log.copy(),"Degree of Geometric Network","Convergence-Time-(Discounted)","violin","consensus-plot","Relationship between Degree of Random Geometric Network and Discounted Convergence Time",arena,comm_data=comm_data,separator="Communication-Range")
+    #plot_design(log.copy(),"Degree of Geometric Network","Convergence-Time-(Discounted)","violin","consensus-plot","Relationship between Degree of Random Geometric Network and Discounted Convergence Time",arena,comm_data=comm_data)
     
-    # plot_design(log.copy(),"Degree of Geometric Network","Convergence-Time-(Discounted)","boxplot","consensus-plot","Relationship between Degree of Random Geometric Network and Discounted Convergence Time",arena,comm_data=comm_data)
-    # plot_design(log.copy(),"Degree of Geometric Network","Convergence-Time-(Discounted)","lmplot","consensus-plot","Relationship between Degree of Random Geometric Network and Discounted Convergence Time",arena,comm_data=comm_data,separator="Population-Size")
-    # plot_design(log.copy(),"Degree of Geometric Network","Convergence-Time-(Discounted)","lmplot","consensus-plot","Relationship between Degree of Random Geometric Network and Discounted Convergence Time",arena,comm_data=comm_data,separator="Communication-Range")
-    
+    #plot_design(log.copy(),"Degree of Geometric Network","Convergence-Time-(Discounted)","boxplot","consensus-plot","Relationship between Degree of Random Geometric Network and Discounted Convergence Time",arena,comm_data=comm_data)
+    #plot_design(log.copy(),"Degree of Geometric Network","Convergence-Time-(Discounted)","lmplot","consensus-plot","Relationship between Degree of Random Geometric Network and Discounted Convergence Time",arena,comm_data=comm_data,separator="Population-Size")
+    #plot_design(log.copy(),"Degree of Geometric Network","Convergence-Time-(Discounted)","lmplot","consensus-plot","Relationship between Degree of Random Geometric Network and Discounted Convergence Time",arena,comm_data=comm_data,separator="Communication-Range")
     plot_design(log,"CRW-Exponent-Rho","Levy-Exponent-Alpha","First Time of Passage (Exponential)","heatmap","Average First Passage Time (Exponential) for all Populations",arena,comm_data=comm_data)
     plot_design(log,"CRW-Exponent-Rho","Levy-Exponent-Alpha","First Time of Passage (Weibull)","heatmap","Average First Passage Time (Weibull) for all Populations",arena,comm_data=comm_data)
-    
+    plot_design(log,"CRW-Exponent-Rho","Levy-Exponent-Alpha","First Time of Passage (Weibull)","heatmap","Average First Passage Time (Weibull) for all Populations at .0125 range",arena,comm_data=comm_data,comm=.0125)
+    plot_design(log,"CRW-Exponent-Rho","Levy-Exponent-Alpha","First Time of Passage (Weibull)","heatmap","Average First Passage Time (Weibull) for all Populations at .025 range",arena,comm_data=comm_data,comm=.025)
+    plot_design(log,"CRW-Exponent-Rho","Levy-Exponent-Alpha","First Time of Passage (Weibull)","heatmap","Average First Passage Time (Weibull) for all Populations at .05 range",arena,comm_data=comm_data,comm=.05)
+    plot_design(log,"CRW-Exponent-Rho","Levy-Exponent-Alpha","First Time of Passage (Weibull)","heatmap","Average First Passage Time (Weibull) for all Populations at .1 range",arena,comm_data=comm_data,comm=.1)
+    plot_design(log,"CRW-Exponent-Rho","Levy-Exponent-Alpha","First Time of Passage (Weibull)","heatmap","Average First Passage Time (Weibull) for all Populations at .2 range",arena,comm_data=comm_data,comm=.2)
     plot_design(log,"CRW-Exponent-Rho","Levy-Exponent-Alpha","Ratio of Total Visits","heatmap","PhiC ratio of Visited to Total Agents",arena,comm_data=comm_data)
 #    plot_design(log,"Population-Size","Convergence-Time","CRW-Exponent-Rho","lmplot","Convergence Times for Alpha=1.4",arena,comm_data=comm_data,alpha=1.4)
     plot_design(log,"Population-Size","Convergence-Time","CRW-Exponent-Rho","lmplot","Convergence Times for Alpha=1.4",arena,comm_data=comm_data,alpha=1.4,separator="Communication-Range")
